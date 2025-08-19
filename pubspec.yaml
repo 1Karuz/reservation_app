@@ -1,0 +1,53 @@
+# pubspec.yaml
+name: event_reservation_app
+description: A chatbot integrated reservation system for events
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # Ready for Firebase integration
+  # firebase_core: ^2.24.2
+  # firebase_auth: ^4.15.3
+  # cloud_firestore: ^4.13.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+  flutter_launcher_icons: ^0.14.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/dove-icon.png"
+
+flutter:
+  uses-material-design: true
+  
+  # Add your assets here
+  assets:
+    - assets/images/
+    # - assets/fonts/Terraria.TTF
+    # - assets/icons
+
+  fonts:
+    - family: Terraria
+      fonts:
+        - asset: assets/fonts/Terraria.TTF
+  
+  # Example fonts (uncomment if needed)
+  # fonts:
+  #   - family: CustomFont
+  #     fonts:
+  #       - asset: assets/fonts/CustomFont-Regular.ttf
+  #       - asset: assets/fonts/CustomFont-Bold.ttf
+  #         weight: 700
