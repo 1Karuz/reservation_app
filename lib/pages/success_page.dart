@@ -8,6 +8,7 @@ class SuccessPage extends StatelessWidget {
   final String email;
   final String date;
   final String contact;
+  final String time;
 
   const SuccessPage({
     super.key,
@@ -16,6 +17,7 @@ class SuccessPage extends StatelessWidget {
     required this.email,
     required this.date,
     required this.contact,
+    required this.time
   });
 
   @override
@@ -98,6 +100,7 @@ class SuccessPage extends StatelessWidget {
                     _buildInfoRow('Name:', name),
                     _buildInfoRow('Email:', email),
                     _buildInfoRow('Date:', date),
+                    _buildInfoRow('Time:', time),
                     _buildInfoRow('Contact No:', contact),
                   ],
                 ),

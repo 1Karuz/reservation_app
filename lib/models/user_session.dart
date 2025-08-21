@@ -31,6 +31,7 @@ class ReservationData {
   final String name;
   final String email;
   final String date;
+  final String time;
   final String contact;
   final String comments;
   final DateTime timestamp;
@@ -40,6 +41,7 @@ class ReservationData {
     required this.name,
     required this.email,
     required this.date,
+    required this.time,
     required this.contact,
     required this.comments,
   }) : timestamp = DateTime.now();

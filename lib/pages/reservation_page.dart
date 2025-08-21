@@ -19,7 +19,11 @@ class _ReservationPageState extends State<ReservationPage> {
   final TextEditingController dateController = TextEditingController();
   final TextEditingController contactController = TextEditingController();
   final TextEditingController commentsController = TextEditingController();
+  final TextEditingController timeController = TextEditingController();
+
   DateTime? selectedDate;
+  TimeOfDay? selectedFromTime;
+  TimeOfDay? selectedToTime;
 
   @override
   Widget build(BuildContext context) {
@@ -27,10 +31,7 @@ class _ReservationPageState extends State<ReservationPage> {
       backgroundColor: const Color(0xFF2D2D2D),
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text(
-          'Reservation',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Reservation', style: TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -72,6 +73,8 @@ class _ReservationPageState extends State<ReservationPage> {
                   _buildTextField('Email:', emailController, isRequired: true, isEmail: true),
                   const SizedBox(height: 15),
                   _buildDateField(),
+                  const SizedBox(height: 15),
+                  _buildTimeField(),
                   const SizedBox(height: 15),
                   _buildTextField('Contact Number:', contactController, isRequired: true, isPhone: true),
                   const SizedBox(height: 20),
@@ -220,9 +223,85 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
+  Widget _buildTimeField() {
+    return TextFormField(
+      controller: timeController,
+      readOnly: true,
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Please select time';
+        return null;
+      },
+      onTap: () async {
+        // Pick "From" time
+        final fromPicked = await showTimePicker(
+          context: context,
+          initialTime: selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
+        );
+        if (fromPicked == null) return;
+        if (fromPicked.hour < 7 || fromPicked.hour > 17) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
+          );
+          return;
+        }
+
+        // Pick "To" time
+        final toPicked = await showTimePicker(
+          context: context,
+          initialTime: selectedToTime ??
+              TimeOfDay(hour: fromPicked.hour + 1, minute: fromPicked.minute),
+        );
+        if (toPicked == null) return;
+        if (toPicked.hour < 7 || toPicked.hour > 17) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
+          );
+          return;
+        }
+        final fromMinutes = fromPicked.hour * 60 + fromPicked.minute;
+        final toMinutes = toPicked.hour * 60 + toPicked.minute;
+        if (toMinutes <= fromMinutes) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('End time must be after start time')),
+          );
+          return;
+        }
+
+        setState(() {
+          selectedFromTime = fromPicked;
+          selectedToTime = toPicked;
+          timeController.text =
+              '${fromPicked.format(context)} - ${toPicked.format(context)}';
+        });
+      },
+      decoration: InputDecoration(
+        hintText: 'Time (From - To):',
+        suffixIcon: const Icon(Icons.access_time, color: Colors.black),
+        filled: true,
+        fillColor: const Color(0xFFF5F5F5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.red, width: 1),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      ),
+    );
+  }
+
   void _saveReservation() {
     if (_formKey.currentState!.validate()) {
-      // Create reservation data
       final reservation = ReservationData(
         eventType: widget.eventType,
         name: nameController.text.trim(),
@@ -230,12 +309,11 @@ class _ReservationPageState extends State<ReservationPage> {
         date: dateController.text.trim(),
         contact: contactController.text.trim(),
         comments: commentsController.text.trim(),
+        time: timeController.text.trim(),
       );
 
-      // Add to user session
       UserSession.addReservation(reservation);
 
-      // Navigate to success page
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -245,6 +323,7 @@ class _ReservationPageState extends State<ReservationPage> {
             email: emailController.text.trim(),
             date: dateController.text.trim(),
             contact: contactController.text.trim(),
+            time: timeController.text.trim(),
           ),
         ),
       );
@@ -258,6 +337,7 @@ class _ReservationPageState extends State<ReservationPage> {
     dateController.dispose();
     contactController.dispose();
     commentsController.dispose();
+    timeController.dispose();
     super.dispose();
   }
 }

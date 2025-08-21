@@ -101,6 +101,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                       _buildInfoRow('Name:', reservation.name),
                                       _buildInfoRow('Email:', reservation.email),
                                       _buildInfoRow('Date:', reservation.date),
+                                      _buildInfoRow('Time:', reservation.time),
                                       _buildInfoRow('Contact No:', reservation.contact),
                                     ],
                                   ),
