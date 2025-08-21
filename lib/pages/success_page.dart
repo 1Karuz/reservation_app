@@ -25,7 +25,7 @@ class SuccessPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text(
-          'Success',
+          'Sent Success!',
           style: TextStyle(color: Colors.white),
         ),
         leading: Builder(
@@ -72,13 +72,17 @@ class SuccessPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Booked Successfully!',
+                'Reservation Sent!',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
                 ),
               ),
+              const Text('Kindly wait for admin approval', style: TextStyle(
+                fontSize: 10,
+                color: Colors.black
+              ),),
               const SizedBox(height: 30),
               Container(
                 width: double.infinity,

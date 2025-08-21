@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "21283314883",
+    "project_id": "fire-setup-reservation",
+    "storage_bucket": "fire-setup-reservation.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:21283314883:android:730f6bb885c1ada1421676",
+        "android_client_info": {
+          "package_name": "com.example.app_revamp_5"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyqC3dKA-HJoQrng9qfGgh9wAtU_O8cWQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
