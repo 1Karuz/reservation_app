@@ -31,7 +31,7 @@ class EventCardWidget extends StatelessWidget {
           // Background Image - Full card
           ClipRRect(
             borderRadius: BorderRadius.circular(40),
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
               height: double.infinity,
               child: event.imagePath.isNotEmpty

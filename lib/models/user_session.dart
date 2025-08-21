@@ -1,13 +1,13 @@
 // models/user_session.dart
 class UserSession {
-  static String _username = '';
+  static String _email = '';
   static final List<ReservationData> _reservations = [];
 
-  static String get username => _username;
+  static String get email => _email;
   static List<ReservationData> get reservations => List.unmodifiable(_reservations);
 
-  static void setUsername(String username) {
-    _username = username;
+  static void setemail(String email) {
+    _email = email;
   }
 
   static void addReservation(ReservationData reservation) {
@@ -21,7 +21,7 @@ class UserSession {
   }
 
   static void clearSession() {
-    _username = '';
+    _email = '';
     _reservations.clear();
   }
 }

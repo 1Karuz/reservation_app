@@ -178,7 +178,7 @@ final List<EventCard> events = const [
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Welcome, ${UserSession.username}!',
+                  'Welcome, ${UserSession.email}!',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
@@ -234,7 +234,7 @@ Widget _buildBookingMadeEasierSection() {
                         margin: const EdgeInsets.only(right: 10, bottom: 5),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Container(
+                          child: SizedBox(
                             width: double.infinity,
                             height: double.infinity,
                             child: Image.asset(
@@ -267,7 +267,7 @@ Widget _buildBookingMadeEasierSection() {
                         margin: const EdgeInsets.only(right: 10, top: 5),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(15),
-                          child: Container(
+                          child: SizedBox(
                             width: double.infinity,
                             height: double.infinity,
                             child: Image.asset(

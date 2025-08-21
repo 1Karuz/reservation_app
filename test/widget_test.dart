@@ -103,7 +103,7 @@ void main() {
 //       await tester.pumpWidget(const MaterialApp(home: AuthPage()));
 
 //       // Find login form elements
-//       expect(find.text('Username'), findsOneWidget);
+//       expect(find.text('email'), findsOneWidget);
 //       expect(find.text('Password'), findsOneWidget);
       
 //       // Test empty form submission
@@ -111,7 +111,7 @@ void main() {
 //       await tester.pumpAndSettle();
       
 //       // Should show validation errors
-//       expect(find.text('Please enter username'), findsOneWidget);
+//       expect(find.text('Please enter email'), findsOneWidget);
 //       expect(find.text('Please enter password'), findsOneWidget);
 //     });
 
@@ -120,7 +120,7 @@ void main() {
 //       await tester.pumpWidget(const MaterialApp(home: AuthPage()));
 
 //       // Enter valid credentials
-//       await tester.enterText(find.byKey(const Key('username_field')), 'testuser');
+//       await tester.enterText(find.byKey(const Key('email_field')), 'testuser');
 //       await tester.enterText(find.byKey(const Key('password_field')), 'password123');
       
 //       // Tap login button

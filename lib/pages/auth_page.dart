@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import '../models/user_session.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -12,7 +13,7 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool isSignUp = false;
-  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -23,8 +24,7 @@ class _AuthPageState extends State<AuthPage> {
       backgroundColor: const Color(0xFF2D2D2D),
       body: Center(
         child: Container(
-          // width: 350,
-          margin:const EdgeInsets.fromLTRB(25, 0, 25, 0),
+          margin: const EdgeInsets.fromLTRB(25, 0, 25, 0),
           padding: const EdgeInsets.all(30),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -45,15 +45,15 @@ class _AuthPageState extends State<AuthPage> {
                 ),
                 const SizedBox(height: 30),
                 TextFormField(
-                  controller: usernameController,
+                  controller: emailController,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter username';
+                      return 'Please enter email';
                     }
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: 'Username',
+                    hintText: 'Email',
                     filled: true,
                     fillColor: const Color(0xFFF5F5F5),
                     border: OutlineInputBorder(
@@ -74,7 +74,7 @@ class _AuthPageState extends State<AuthPage> {
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: 'password',
+                    hintText: 'Password',
                     filled: true,
                     fillColor: const Color(0xFFF5F5F5),
                     border: OutlineInputBorder(
@@ -99,7 +99,7 @@ class _AuthPageState extends State<AuthPage> {
                       return null;
                     },
                     decoration: InputDecoration(
-                      hintText: 'confirm password',
+                      hintText: 'Confirm password',
                       filled: true,
                       fillColor: const Color(0xFFF5F5F5),
                       border: OutlineInputBorder(
@@ -123,7 +123,7 @@ class _AuthPageState extends State<AuthPage> {
                         borderRadius: BorderRadius.circular(25),
                       ),
                     ),
-                    child: Text(isSignUp ? 'Sign In' : 'Log in'),
+                    child: Text(isSignUp ? 'Sign Up' : 'Log in'),
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -159,37 +159,70 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
-  void _handleAuthentication() {
+  void _handleAuthentication() async {
     if (_formKey.currentState!.validate()) {
-      // Set username in session
-      UserSession.setUsername(usernameController.text);
-      
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-      
-      // TODO: Implement Firebase Authentication
-      // if (isSignUp) {
-      //   // Firebase sign up logic
-      //   FirebaseAuth.instance.createUserWithEmailAndPassword(
-      //     email: emailController.text,
-      //     password: passwordController.text,
-      //   );
-      // } else {
-      //   // Firebase sign in logic  
-      //   FirebaseAuth.instance.signInWithEmailAndPassword(
-      //     email: emailController.text,
-      //     password: passwordController.text,
-      //   );
-      // }
+      try {
+        if (isSignUp) {
+          // 🔹 Sign Up
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
+
+          if (!mounted) return;
+
+          // ✅ Show success and switch back to login
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Account created! Please log in.")),
+          );
+
+          setState(() {
+            isSignUp = false; // Switch back to login mode
+          });
+        } else {
+          // 🔹 Login
+          UserCredential userCredential =
+              await FirebaseAuth.instance.signInWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
+
+          if (!mounted) return;
+
+          // ✅ Save user email in session
+          UserSession.setemail(userCredential.user?.email ?? '');
+
+          // ✅ Navigate to home screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (!mounted) return;
+
+        String message = '';
+        if (e.code == 'user-not-found') {
+          message = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          message = 'Wrong password provided.';
+        } else if (e.code == 'email-already-in-use') {
+          message = 'That email is already registered.';
+        } else {
+          message = e.message ?? 'Authentication failed';
+        }
+
+        // Show error dialog/snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
-    usernameController.dispose();
+    emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
