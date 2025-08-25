@@ -7,7 +7,8 @@ class UserSession {
   static final List<ReservationData> _reservations = [];
 
   static String get email => _email;
-  static List<ReservationData> get reservations => List.unmodifiable(_reservations);
+  static List<ReservationData> get reservations =>
+      List.unmodifiable(_reservations);
 
   static void setemail(String email) {
     _email = email;
@@ -29,9 +30,8 @@ class UserSession {
   }
 }
 
-
 class ReservationData {
-  String reservationId;   // 🔹 not final
+  String reservationId; // 🔹 not final
   final String userId;
   final String eventType;
   final String name;
@@ -61,24 +61,27 @@ class ReservationData {
     required this.updatedAt,
   });
 
-
-  // ✅ Convert Firestore doc → ReservationData
-  factory ReservationData.fromFirestore(
-      Map<String, dynamic> data, String id) {
+  factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
     return ReservationData(
       reservationId: id,
-      userId: data['userId'],
-      eventType: data['eventType'],
-      name: data['name'],
-      email: data['email'],
-      contact: data['contact'],
-      date: (data['date'] as Timestamp).toDate(),
-      timeFrom: data['timeFrom'],
-      timeTo: data['timeTo'],
-      comments: data['comments'],
-      status: data['status'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      userId: data['userId'] ?? '',
+      eventType: data['eventType'] ?? '',
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      contact: data['contact'] ?? '',
+      date: (data['date'] is Timestamp)
+          ? (data['date'] as Timestamp).toDate()
+          : DateTime.tryParse(data['date'] ?? '') ?? DateTime.now(),
+      timeFrom: data['timeFrom'] ?? '',
+      timeTo: data['timeTo'] ?? '',
+      comments: data['comments'] ?? '',
+      status: data['status'] ?? 'pending',
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: (data['updatedAt'] is Timestamp)
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 
