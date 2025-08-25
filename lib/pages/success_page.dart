@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 
 class SuccessPage extends StatelessWidget {
-  final String eventType;
-  final String name;
-  final String email;
-  final String date;
-  final String contact;
-  final String time;
+final String eventType;
+final String name;
+final String email;
+final DateTime date;
+final String contact;
+final String timeFrom;
+final String timeTo;
+
 
   const SuccessPage({
     super.key,
@@ -17,7 +19,8 @@ class SuccessPage extends StatelessWidget {
     required this.email,
     required this.date,
     required this.contact,
-    required this.time
+    required this.timeFrom,
+    required this.timeTo,
   });
 
   @override
@@ -99,8 +102,8 @@ class SuccessPage extends StatelessWidget {
                     _buildInfoRow('Event:', eventType),
                     _buildInfoRow('Name:', name),
                     _buildInfoRow('Email:', email),
-                    _buildInfoRow('Date:', date),
-                    _buildInfoRow('Time:', time),
+                    _buildInfoRow('Date:', date.toLocal().toString().split(' ')[0]),
+                    _buildInfoRow('Time:', '$timeFrom - $timeTo'),
                     _buildInfoRow('Contact No:', contact),
                   ],
                 ),

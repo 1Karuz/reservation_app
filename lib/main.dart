@@ -10,10 +10,6 @@ Future<void> main() async {
   runApp(const EventReservationApp());
 }
 
-// void main() {
-//   runApp(const EventReservationApp());
-// }
-
 class EventReservationApp extends StatelessWidget {
   const EventReservationApp({super.key});
 

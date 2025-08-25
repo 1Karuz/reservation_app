@@ -1,4 +1,7 @@
 // models/user_session.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserSession {
   static String _email = '';
   static final List<ReservationData> _reservations = [];
@@ -26,23 +29,74 @@ class UserSession {
   }
 }
 
+
 class ReservationData {
+  String reservationId;   // 🔹 not final
+  final String userId;
   final String eventType;
   final String name;
   final String email;
-  final String date;
-  final String time;
   final String contact;
+  final DateTime date;
+  final String timeFrom;
+  final String timeTo;
   final String comments;
-  final DateTime timestamp;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   ReservationData({
+    required this.reservationId,
+    required this.userId,
     required this.eventType,
     required this.name,
     required this.email,
-    required this.date,
-    required this.time,
     required this.contact,
+    required this.date,
+    required this.timeFrom,
+    required this.timeTo,
     required this.comments,
-  }) : timestamp = DateTime.now();
+    this.status = "pending",
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+
+  // ✅ Convert Firestore doc → ReservationData
+  factory ReservationData.fromFirestore(
+      Map<String, dynamic> data, String id) {
+    return ReservationData(
+      reservationId: id,
+      userId: data['userId'],
+      eventType: data['eventType'],
+      name: data['name'],
+      email: data['email'],
+      contact: data['contact'],
+      date: (data['date'] as Timestamp).toDate(),
+      timeFrom: data['timeFrom'],
+      timeTo: data['timeTo'],
+      comments: data['comments'],
+      status: data['status'],
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+    );
+  }
+
+  // ✅ Convert ReservationData → Firestore map
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'eventType': eventType,
+      'name': name,
+      'email': email,
+      'contact': contact,
+      'date': date,
+      'timeFrom': timeFrom,
+      'timeTo': timeTo,
+      'comments': comments,
+      'status': status,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
 }

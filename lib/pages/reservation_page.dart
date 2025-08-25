@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import 'success_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class ReservationPage extends StatefulWidget {
   final String eventType;
@@ -300,35 +303,55 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  void _saveReservation() {
-    if (_formKey.currentState!.validate()) {
-      final reservation = ReservationData(
-        eventType: widget.eventType,
-        name: nameController.text.trim(),
-        email: emailController.text.trim(),
-        date: dateController.text.trim(),
-        contact: contactController.text.trim(),
-        comments: commentsController.text.trim(),
-        time: timeController.text.trim(),
-      );
+void _saveReservation() async {
+  if (_formKey.currentState!.validate()) {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
 
-      UserSession.addReservation(reservation);
+    final reservation = ReservationData(
+      reservationId: '', // will be set after Firestore save
+      userId: userId,
+      eventType: widget.eventType,
+      name: nameController.text.trim(),
+      email: emailController.text.trim(),
+      contact: contactController.text.trim(),
+      date: selectedDate!,
+      timeFrom: selectedFromTime!.format(context),
+      timeTo: selectedToTime!.format(context),
+      comments: commentsController.text.trim(),
+      status: "pending",
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SuccessPage(
-            eventType: widget.eventType,
-            name: nameController.text.trim(),
-            email: emailController.text.trim(),
-            date: dateController.text.trim(),
-            contact: contactController.text.trim(),
-            time: timeController.text.trim(),
-          ),
+    // 🔹 Save to Firestore
+    final docRef = await FirebaseFirestore.instance
+        .collection('reservations')
+        .add(reservation.toMap());
+
+    // 🔹 Store Firestore document ID
+    reservation.reservationId = docRef.id;
+
+    // (optional) still save locally if you want
+    UserSession.addReservation(reservation);
+
+    // 🔹 Navigate to success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SuccessPage(
+          eventType: widget.eventType,
+          name: reservation.name,
+          email: reservation.email,
+          date: reservation.date,
+          contact: reservation.contact,
+          timeFrom: reservation.timeFrom,
+          timeTo: reservation.timeTo,
         ),
-      );
-    }
+      ),
+    );
   }
+}
+
 
   @override
   void dispose() {

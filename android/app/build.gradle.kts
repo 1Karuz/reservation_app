@@ -11,7 +11,6 @@ android {
 
     namespace = "com.example.app_revamp_5"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
