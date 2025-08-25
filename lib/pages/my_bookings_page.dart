@@ -260,52 +260,62 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
   }
 
-  void _deleteReservation(ReservationData reservation) async {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Reservation'),
-          content:
-              const Text('Are you sure you want to delete this reservation?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  await FirebaseFirestore.instance
-                      .collection('reservations')
-                      .doc(reservation.reservationId)
-                      .delete();
+void _deleteReservation(ReservationData reservation) async {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Delete Reservation'),
+        content:
+            const Text('Are you sure you want to delete this reservation?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              // 🔹 Store context references BEFORE any await
+              final navigator = Navigator.of(context);
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              
+              try {
+                await FirebaseFirestore.instance
+                    .collection('reservations')
+                    .doc(reservation.reservationId)
+                    .delete();
 
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
+                // 🔹 Check if widget is still mounted before using stored references
+                if (mounted) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
                     const SnackBar(
                       content: Text('Reservation deleted successfully'),
                       backgroundColor: Colors.red,
                     ),
                   );
-                } catch (e) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
+                }
+              } catch (e) {
+                // 🔹 Check if widget is still mounted before using stored references
+                if (mounted) {
+                  navigator.pop();
+                  scaffoldMessenger.showSnackBar(
                     SnackBar(
                       content: Text('Failed to delete: $e'),
                       backgroundColor: Colors.red,
                     ),
                   );
                 }
-              },
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
             ),
-          ],
-        );
-      },
-    );
-  }
+          ),
+        ],
+      );
+    },
+  );
+}
 }
