@@ -13,6 +13,8 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool isSignUp = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
@@ -66,7 +68,7 @@ class _AuthPageState extends State<AuthPage> {
                 const SizedBox(height: 15),
                 TextFormField(
                   controller: passwordController,
-                  obscureText: true,
+                  obscureText: !_isPasswordVisible,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter password';
@@ -82,13 +84,24 @@ class _AuthPageState extends State<AuthPage> {
                       borderSide: BorderSide.none,
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                 ),
                 if (isSignUp) ...[
                   const SizedBox(height: 15),
                   TextFormField(
                     controller: confirmPasswordController,
-                    obscureText: true,
+                    obscureText: !_isConfirmPasswordVisible,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please confirm password';
@@ -107,6 +120,17 @@ class _AuthPageState extends State<AuthPage> {
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isConfirmPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -163,7 +187,6 @@ class _AuthPageState extends State<AuthPage> {
     if (_formKey.currentState!.validate()) {
       try {
         if (isSignUp) {
-          // 🔹 Sign Up
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
             email: emailController.text.trim(),
             password: passwordController.text.trim(),
@@ -171,16 +194,14 @@ class _AuthPageState extends State<AuthPage> {
 
           if (!mounted) return;
 
-          // ✅ Show success and switch back to login
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Account created! Please log in.")),
           );
 
           setState(() {
-            isSignUp = false; // Switch back to login mode
+            isSignUp = false;
           });
         } else {
-          // 🔹 Login
           UserCredential userCredential =
               await FirebaseAuth.instance.signInWithEmailAndPassword(
             email: emailController.text.trim(),
@@ -189,10 +210,8 @@ class _AuthPageState extends State<AuthPage> {
 
           if (!mounted) return;
 
-          // ✅ Save user email in session
           UserSession.setemail(userCredential.user?.email ?? '');
 
-          // ✅ Navigate to home screen
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -212,19 +231,10 @@ class _AuthPageState extends State<AuthPage> {
           message = e.message ?? 'Authentication failed';
         }
 
-        // Show error dialog/snackbar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
         );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
-    confirmPasswordController.dispose();
-    super.dispose();
   }
 }

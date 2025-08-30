@@ -5,7 +5,6 @@ import 'success_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
 class ReservationPage extends StatefulWidget {
   final String eventType;
 
@@ -18,7 +17,6 @@ class ReservationPage extends StatefulWidget {
 class _ReservationPageState extends State<ReservationPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
   final TextEditingController contactController = TextEditingController();
   final TextEditingController commentsController = TextEditingController();
@@ -27,6 +25,7 @@ class _ReservationPageState extends State<ReservationPage> {
   DateTime? selectedDate;
   TimeOfDay? selectedFromTime;
   TimeOfDay? selectedToTime;
+  bool _isSaving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +72,6 @@ class _ReservationPageState extends State<ReservationPage> {
                   const SizedBox(height: 25),
                   _buildTextField('Name:', nameController, isRequired: true),
                   const SizedBox(height: 15),
-                  _buildTextField('Email:', emailController, isRequired: true, isEmail: true),
-                  const SizedBox(height: 15),
                   _buildDateField(),
                   const SizedBox(height: 15),
                   _buildTimeField(),
@@ -87,7 +84,7 @@ class _ReservationPageState extends State<ReservationPage> {
                     child: SizedBox(
                       width: 120,
                       child: ElevatedButton(
-                        onPressed: _saveReservation,
+                        onPressed: _isSaving ? null : _saveReservation,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
@@ -96,7 +93,9 @@ class _ReservationPageState extends State<ReservationPage> {
                             borderRadius: BorderRadius.circular(25),
                           ),
                         ),
-                        child: const Text('Save'),
+                        child: _isSaving
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Save'),
                       ),
                     ),
                   ),
@@ -114,7 +113,6 @@ class _ReservationPageState extends State<ReservationPage> {
     TextEditingController controller, {
     int maxLines = 1,
     bool isRequired = false,
-    bool isEmail = false,
     bool isPhone = false,
   }) {
     return TextFormField(
@@ -123,11 +121,6 @@ class _ReservationPageState extends State<ReservationPage> {
       validator: (value) {
         if (isRequired && (value == null || value.trim().isEmpty)) {
           return 'This field is required';
-        }
-        if (isEmail && value != null && value.isNotEmpty) {
-          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-            return 'Please enter a valid email';
-          }
         }
         if (isPhone && value != null && value.isNotEmpty) {
           if (!RegExp(r'^\d{10,15}$').hasMatch(value.replaceAll(RegExp(r'[^\d]'), ''))) {
@@ -226,169 +219,156 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-Widget _buildTimeField() {
-  return TextFormField(
-    controller: timeController,
-    readOnly: true,
-    validator: (value) {
-      if (value == null || value.isEmpty) return 'Please select time';
-      return null;
-    },
-    onTap: () async {
-      // 🔹 Store context and ScaffoldMessenger reference before any async operations
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      
-      // Pick "From" time
-      final fromPicked = await showTimePicker(
-        context: context,
-        initialTime: selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
-      );
-      if (fromPicked == null) return;
-      
-      if (fromPicked.hour < 7 || fromPicked.hour > 17) {
-        if (mounted) {
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
-          );
+  Widget _buildTimeField() {
+    return TextFormField(
+      controller: timeController,
+      readOnly: true,
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Please select time';
+        return null;
+      },
+      onTap: () async {
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+        final fromPicked = await showTimePicker(
+          context: context,
+          initialTime: selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
+        );
+        if (fromPicked == null) return;
+
+        if (fromPicked.hour < 7 || fromPicked.hour > 17) {
+          if (mounted) {
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      // Pick "To" time
-      final toPicked = await showTimePicker(
-        context: context,
-        initialTime: selectedToTime ??
-            TimeOfDay(hour: fromPicked.hour + 1, minute: fromPicked.minute),
-      );
-      if (toPicked == null) return;
-      
-      if (toPicked.hour < 7 || toPicked.hour > 17) {
-        if (mounted) {
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
-          );
+        final toPicked = await showTimePicker(
+          context: context,
+          initialTime: selectedToTime ??
+              TimeOfDay(hour: fromPicked.hour + 1, minute: fromPicked.minute),
+        );
+        if (toPicked == null) return;
+
+        if (toPicked.hour < 7 || toPicked.hour > 17) {
+          if (mounted) {
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('Time must be between 7:00 AM and 5:00 PM')),
+            );
+          }
+          return;
         }
-        return;
-      }
-      
-      final fromMinutes = fromPicked.hour * 60 + fromPicked.minute;
-      final toMinutes = toPicked.hour * 60 + toPicked.minute;
-      
-      if (toMinutes <= fromMinutes) {
-        if (mounted) {
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(content: Text('End time must be after start time')),
-          );
+
+        final fromMinutes = fromPicked.hour * 60 + fromPicked.minute;
+        final toMinutes = toPicked.hour * 60 + toPicked.minute;
+
+        if (toMinutes <= fromMinutes) {
+          if (mounted) {
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(content: Text('End time must be after start time')),
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      // 🔹 Check mounted before setState
-      if (mounted) {
-        setState(() {
-          selectedFromTime = fromPicked;
-          selectedToTime = toPicked;
-          timeController.text =
-              '${fromPicked.format(context)} - ${toPicked.format(context)}';
-        });
-      }
-    },
-    decoration: InputDecoration(
-      hintText: 'Time (From - To):',
-      suffixIcon: const Icon(Icons.access_time, color: Colors.black),
-      filled: true,
-      fillColor: const Color(0xFFF5F5F5),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(25),
-        borderSide: const BorderSide(color: Colors.black, width: 1),
+        if (mounted) {
+          setState(() {
+            selectedFromTime = fromPicked;
+            selectedToTime = toPicked;
+            timeController.text =
+                '${fromPicked.format(context)} - ${toPicked.format(context)}';
+          });
+        }
+      },
+      decoration: InputDecoration(
+        hintText: 'Time (From - To):',
+        suffixIcon: const Icon(Icons.access_time, color: Colors.black),
+        filled: true,
+        fillColor: const Color(0xFFF5F5F5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.black, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(25),
+          borderSide: const BorderSide(color: Colors.red, width: 1),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(25),
-        borderSide: const BorderSide(color: Colors.black, width: 1),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(25),
-        borderSide: const BorderSide(color: Colors.black, width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(25),
-        borderSide: const BorderSide(color: Colors.red, width: 1),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-    ),
-  );
-}
-
-void _saveReservation() async {
-  if (_formKey.currentState!.validate()) {
-    // 🔹 Store Navigator reference before any async operations
-    final navigator = Navigator.of(context);
-    
-    final userId = FirebaseAuth.instance.currentUser!.uid;
-
-    final reservation = ReservationData(
-      reservationId: '', // will be set after Firestore save
-      userId: userId,
-      eventType: widget.eventType,
-      name: nameController.text.trim(),
-      email: emailController.text.trim(),
-      contact: contactController.text.trim(),
-      date: selectedDate!,
-      timeFrom: selectedFromTime!.format(context),
-      timeTo: selectedToTime!.format(context),
-      comments: commentsController.text.trim(),
-      status: "pending",
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
     );
+  }
 
-    try {
-      // 🔹 Save to Firestore
-      final docRef = await FirebaseFirestore.instance
-          .collection('reservations')
-          .add(reservation.toMap());
+  void _saveReservation() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isSaving = true);
 
-      // 🔹 Store Firestore document ID
-      reservation.reservationId = docRef.id;
+      final navigator = Navigator.of(context);
+      final user = FirebaseAuth.instance.currentUser;
 
-      // (optional) still save locally if you want
-      UserSession.addReservation(reservation);
+      final reservation = ReservationData(
+        reservationId: '',
+        userId: user!.uid,
+        eventType: widget.eventType,
+        name: nameController.text.trim(),
+        email: user.email ?? '', // auto-use login email
+        contact: contactController.text.trim(),
+        date: selectedDate!,
+        timeFrom: selectedFromTime!.format(context),
+        timeTo: selectedToTime!.format(context),
+        comments: commentsController.text.trim(),
+        status: "pending",
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-      // 🔹 Check mounted before navigation
-      if (mounted) {
-        navigator.push(
-          MaterialPageRoute(
-            builder: (context) => SuccessPage(
-              eventType: widget.eventType,
-              name: reservation.name,
-              email: reservation.email,
-              date: reservation.date,
-              contact: reservation.contact,
-              timeFrom: reservation.timeFrom,
-              timeTo: reservation.timeTo,
+      try {
+        final docRef = await FirebaseFirestore.instance
+            .collection('reservations')
+            .add(reservation.toMap());
+
+        reservation.reservationId = docRef.id;
+        UserSession.addReservation(reservation);
+
+        if (mounted) {
+          navigator.push(
+            MaterialPageRoute(
+              builder: (context) => SuccessPage(
+                eventType: widget.eventType,
+                name: reservation.name,
+                email: reservation.email,
+                date: reservation.date,
+                contact: reservation.contact,
+                timeFrom: reservation.timeFrom,
+                timeTo: reservation.timeTo,
+              ),
             ),
-          ),
-        );
-      }
-    } catch (e) {
-      // 🔹 Handle any potential errors
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save reservation: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to save reservation: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSaving = false);
       }
     }
   }
-}
-
 
   @override
   void dispose() {
     nameController.dispose();
-    emailController.dispose();
     dateController.dispose();
     contactController.dispose();
     commentsController.dispose();
