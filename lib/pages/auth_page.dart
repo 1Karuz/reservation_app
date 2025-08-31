@@ -28,7 +28,8 @@ class _AuthPageState extends State<AuthPage> {
         children: [
           Positioned.fill(
             child: Image.asset(
-              "assets/images/church_pic.jpg",
+              // "assets/images/church_pic.jpg",
+              "assets/images/church.jpg",
               fit: BoxFit.cover,
             ),
           ),
