@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../models/event_model.dart';
 import '../models/user_session.dart';
 import '../widgets/event_card_widget.dart';
@@ -11,9 +12,22 @@ import 'my_bookings_page.dart';
 import 'auth_page.dart';
 import '/pages/notification_page.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-// Replace the events list in home_screen.dart with this:
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  Map<DateTime, List<dynamic>> _events = {};
+  bool _showAllEvents = false;
+  late AnimationController _calendarController;
+  late AnimationController _statsController;
+  late Animation<double> _calendarAnimation;
+  late Animation<double> _statsAnimation;
 
   final List<EventCard> events = const [
     EventCard(
@@ -47,13 +61,107 @@ class HomeScreen extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _selectedDay = DateTime.now();
+
+    // Animation controllers
+    _calendarController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _statsController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _calendarAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _calendarController, curve: Curves.easeInOut),
+    );
+
+    _statsAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _statsController, curve: Curves.easeInOut),
+    );
+
+    // Start animations
+    _calendarController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _statsController.forward();
+    });
+
+    _loadReservations();
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    _statsController.dispose();
+    super.dispose();
+  }
+
+  void _loadReservations() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    FirebaseFirestore.instance
+        .collection("reservations")
+        .where(_showAllEvents ? "status" : "userId",
+            isEqualTo: _showAllEvents ? "approved" : userId)
+        .snapshots()
+        .listen((snapshot) {
+      Map<DateTime, List<dynamic>> events = {};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final date = _parseFirebaseDate(data['date']);
+        if (date != null) {
+          final eventDate = DateTime(date.year, date.month, date.day);
+          if (events[eventDate] == null) events[eventDate] = [];
+          events[eventDate]!.add({
+            'id': doc.id,
+            'eventType': data['eventType'] ?? 'Event',
+            'timeFrom': data['timeFrom'] ?? '',
+            'timeTo': data['timeTo'] ?? '',
+            'name': data['name'] ?? 'Unknown',
+            'status': data['status'] ?? 'pending',
+            'isOwn': data['userId'] == userId,
+          });
+        }
+      }
+
+      setState(() {
+        _events = events;
+      });
+    });
+  }
+
+  DateTime? _parseFirebaseDate(dynamic dateField) {
+    if (dateField == null) return null;
+    try {
+      if (dateField is Timestamp) return dateField.toDate();
+      if (dateField is Map && dateField['seconds'] != null) {
+        return DateTime.fromMillisecondsSinceEpoch(dateField['seconds'] * 1000);
+      }
+      if (dateField is String) return DateTime.parse(dateField);
+      return DateTime.fromMillisecondsSinceEpoch(dateField);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<dynamic> _getEventsForDay(DateTime day) {
+    return _events[DateTime(day.year, day.month, day.day)] ?? [];
+  }
+
+  @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: Colors.black,
+        elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: Colors.white),
@@ -66,7 +174,7 @@ class HomeScreen extends StatelessWidget {
               stream: FirebaseFirestore.instance
                   .collection("notifications")
                   .where("userId", isEqualTo: userId)
-                  .where("read", isEqualTo: false) // only unread notifications
+                  .where("read", isEqualTo: false)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -124,55 +232,581 @@ class HomeScreen extends StatelessWidget {
             ),
         ],
       ),
-      
       drawer: _buildAppDrawer(context),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            const Center(
-              child: Text(
-                'EVENTS',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 30,
-                  letterSpacing: 2,
+            // Hero Section
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black, Colors.grey],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 500,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: events.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    width: 300,
-                    height: 500,
-                    margin: const EdgeInsets.only(right: 20),
-                    child: EventCardWidget(
-                      event: events[index],
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ReservationPage(eventType: events[index].title),
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+                  const Text(
+                    'EVENTS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Create unforgettable moments',
+                    style: TextStyle(
+                      color: Colors.grey[300],
+                      fontSize: 16,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Event Cards
+                  SizedBox(
+                    height: 480,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: events.length,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          width: 300,
+                          height: 480,
+                          margin: const EdgeInsets.only(right: 20),
+                          child: EventCardWidget(
+                            event: events[index],
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ReservationPage(
+                                      eventType: events[index].title),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 30),
+                ],
               ),
             ),
+
             const SizedBox(height: 40),
-            _buildBookingMadeEasierSection(),
+
+            // Quick Stats Section
+            AnimatedBuilder(
+              animation: _statsAnimation,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _statsAnimation.value,
+                  child: Opacity(
+                    opacity: _statsAnimation.value,
+                    child: _buildQuickStatsSection(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 40),
+
+            // Booking Made Easier Section with Calendar
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Booking made easier!',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'View available dates and plan your perfect event',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            // Modern Calendar Section
+            AnimatedBuilder(
+              animation: _calendarAnimation,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, 50 * (1 - _calendarAnimation.value)),
+                  child: Opacity(
+                    opacity: _calendarAnimation.value,
+                    child: _buildModernCalendarSection(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 40),
+
+            // Features Section
+            _buildFeaturesSection(),
+
+            const SizedBox(height: 40),
+
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStatsSection() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection("reservations").snapshots(),
+      builder: (context, snapshot) {
+        int totalReservations = 0;
+        int approvedReservations = 0;
+        int pendingReservations = 0;
+
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            totalReservations++;
+            final status = doc.data() as Map<String, dynamic>;
+            if (status['status'] == 'approved') approvedReservations++;
+            if (status['status'] == 'pending') pendingReservations++;
+          }
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Colors.black, Color.fromARGB(255, 197, 197, 197)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem(
+                  Icons.event_available, 'Total\nEvents', '$totalReservations'),
+              _buildStatItem(
+                  Icons.check_circle, 'Approved', '$approvedReservations'),
+              _buildStatItem(Icons.schedule, 'Pending', '$pendingReservations'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, size: 30, color: Colors.white),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernCalendarSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Calendar Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.black87, Colors.grey[700]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(25),
+                topRight: Radius.circular(25),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calendar_month, color: Colors.white, size: 24),
+                    SizedBox(width: 10),
+                    Text(
+                      'Event Calendar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showAllEvents = !_showAllEvents;
+                        });
+                        _loadReservations();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _showAllEvents
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(15),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showAllEvents
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              _showAllEvents ? 'All Events' : 'My Events',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Calendar
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: TableCalendar<dynamic>(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              calendarFormat: CalendarFormat.month,
+              eventLoader: _getEventsForDay,
+              startingDayOfWeek: StartingDayOfWeek.monday,
+              calendarStyle: CalendarStyle(
+                outsideDaysVisible: false,
+                weekendTextStyle: TextStyle(color: Colors.red[400]),
+                holidayTextStyle: TextStyle(color: Colors.red[400]),
+                selectedDecoration: const BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Colors.blue[300],
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: BoxDecoration(
+                  color: Colors.orange[400],
+                  shape: BoxShape.circle,
+                ),
+              ),
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                leftChevronIcon: Icon(Icons.chevron_left, color: Colors.indigo),
+                rightChevronIcon:
+                    Icon(Icons.chevron_right, color: Colors.indigo),
+              ),
+              onDaySelected: (selectedDay, focusedDay) {
+                if (!mounted) return;
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay;
+                });
+              },
+              onPageChanged: (focusedDay) {
+                _focusedDay = focusedDay;
+              },
+            ),
+          ),
+
+          // Events for selected day
+          if (_selectedDay != null &&
+              _getEventsForDay(_selectedDay!).isNotEmpty)
+            Container(
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Events on ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...(_getEventsForDay(_selectedDay!)
+                      .take(3)
+                      .map((event) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: event['isOwn']
+                                  ? Colors.blue[50]
+                                  : Colors.orange[50],
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: event['isOwn']
+                                    ? Colors.blue[200]!
+                                    : Colors.orange[200]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  event['isOwn'] ? Icons.person : Icons.group,
+                                  size: 16,
+                                  color: event['isOwn']
+                                      ? Colors.blue[700]
+                                      : Colors.orange[700],
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        event['eventType'],
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: event['isOwn']
+                                              ? Colors.blue[800]
+                                              : Colors.orange[800],
+                                        ),
+                                      ),
+                                      Text(
+                                        '${event['timeFrom']} - ${event['timeTo']}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(event['status']),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    event['status'].toString().toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList()),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green[600]!;
+      case 'rejected':
+        return Colors.red[600]!;
+      default:
+        return Colors.orange[600]!;
+    }
+  }
+
+  Widget _buildFeaturesSection() {
+    final features = [
+      {
+        'icon': Icons.schedule,
+        'title': 'Flexible Scheduling',
+        'description': 'Book events at your preferred time and date',
+        'color': Colors.blue,
+      },
+      {
+        'icon': Icons.verified,
+        'title': 'Instant Confirmation',
+        'description': 'Get immediate booking confirmations',
+        'color': Colors.green,
+      },
+      {
+        'icon': Icons.support_agent,
+        'title': '24/7 Support',
+        'description': 'Round-the-clock assistance for your events',
+        'color': Colors.orange,
+      },
+      {
+        'icon': Icons.security,
+        'title': 'Secure Booking',
+        'description': 'Your data and reservations are always safe',
+        'color': Colors.purple,
+      },
+    ];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          const Text(
+            'Why Choose Us?',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 20),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 0.9,
+            ),
+            itemCount: features.length,
+            itemBuilder: (context, index) {
+              final feature = features[index];
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: feature['color'] as Color,
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                      spreadRadius: -5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      feature['icon'] as IconData,
+                      size: 40,
+                      color: feature['color'] as Color,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      feature['title'] as String,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      feature['description'] as String,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -272,191 +906,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-// Replace the _buildBookingMadeEasierSection() method in home_screen.dart with this:
-
-  Widget _buildBookingMadeEasierSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          const Text(
-            'Booking made easier!',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Bento grid layout with properly fitted images
-          SizedBox(
-            height: 300,
-            child: Row(
-              children: [
-                // Left column - 2 small boxes
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10, bottom: 5),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: double.infinity,
-                              child: Image.asset(
-                                'assets/images/grass.jpg',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        '(grass image)',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10, top: 5),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: double.infinity,
-                              child: Image.asset(
-                                'assets/images/sky.jpg',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        '(sky image)',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Right column - 2 boxes
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(left: 10, bottom: 5),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Container(
-                              width: double.infinity,
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              child: Image.asset(
-                                'assets/images/flowers.jpg',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        '(flowers image)',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(left: 10, top: 5),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Container(
-                              width: double.infinity,
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              child: Image.asset(
-                                'assets/images/bible.jpg',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        '(bible image)',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAboutDialog(BuildContext context) {
     Navigator.pop(context); // Close drawer first
     showDialog(
@@ -488,6 +937,7 @@ class HomeScreen extends StatelessWidget {
               Text('• Reservation management'),
               Text('• User-friendly interface'),
               Text('• Secure authentication'),
+              Text('• Calendar overview'),
               Text('\n\ncreated by: Jhon Kalvin Porteria et. al.'),
             ],
           ),

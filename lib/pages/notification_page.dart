@@ -305,13 +305,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
           icon: Icon(Icons.arrow_back_ios, color: Colors.grey.shade800),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.mark_email_read, color: Colors.grey.shade600),
-            onPressed: _markAllAsRead,
-            tooltip: "Mark all as read",
-          ),
-        ],
       ),
       body: _buildNotificationsList(),
     );
