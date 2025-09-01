@@ -1,62 +1,130 @@
 // pages/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/event_model.dart';
 import '../models/user_session.dart';
 import '../widgets/event_card_widget.dart';
 import 'reservation_page.dart';
 import 'my_bookings_page.dart';
 import 'auth_page.dart';
+import '/pages/notification_page.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 // Replace the events list in home_screen.dart with this:
 
-final List<EventCard> events = const [
-  EventCard(
-    title: 'Wedding',
-    description: 'Celebrate your special day with elegance and love with us.',
-    imagePath: 'assets/images/wedding.jpg',
-  ),
-  EventCard(
-    title: 'Baptism',
-    description: 'Mark the beginning of a blessed journey with your baby.',
-    imagePath: 'assets/images/baptism.jpg',
-  ),
-  EventCard(
-    title: 'Funeral',
-    description: 'Honor and remember your loved one with dignity and respect.',
-    imagePath: 'assets/images/funeral.jpg',
-  ),
-  EventCard(
-    title: 'House Blessing',
-    description: 'Welcome positivity into your new home with church blessings.',
-    imagePath: 'assets/images/house_blessing.webp',
-  ),
-  EventCard(
-    title: 'Ordination',
-    description: 'Celebrate a sacred calling with reverence who will serve the lord.',
-    imagePath: 'assets/images/ordination.jpg',
-  ),
-];
+  final List<EventCard> events = const [
+    EventCard(
+      title: 'Wedding',
+      description: 'Celebrate your special day with elegance and love with us.',
+      imagePath: 'assets/images/wedding.jpg',
+    ),
+    EventCard(
+      title: 'Baptism',
+      description: 'Mark the beginning of a blessed journey with your baby.',
+      imagePath: 'assets/images/baptism.jpg',
+    ),
+    EventCard(
+      title: 'Funeral',
+      description:
+          'Honor and remember your loved one with dignity and respect.',
+      imagePath: 'assets/images/funeral.jpg',
+    ),
+    EventCard(
+      title: 'House Blessing',
+      description:
+          'Welcome positivity into your new home with church blessings.',
+      imagePath: 'assets/images/house_blessing.webp',
+    ),
+    EventCard(
+      title: 'Ordination',
+      description:
+          'Celebrate a sacred calling with reverence who will serve the lord.',
+      imagePath: 'assets/images/ordination.jpg',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        // title: const Text(
-        //   'Chatbot integrated Reservation system a...',
-        //   style: TextStyle(color: Colors.white, fontSize: 16),
-        // ),
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: Colors.white),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
+        actions: [
+          if (userId != null)
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection("notifications")
+                  .where("userId", isEqualTo: userId)
+                  .where("read", isEqualTo: false) // only unread notifications
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.white),
+                    onPressed: () {},
+                  );
+                }
+
+                int unreadCount = snapshot.data!.docs.length;
+
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon:
+                          const Icon(Icons.notifications, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+        ],
       ),
+      
       drawer: _buildAppDrawer(context),
       body: SingleChildScrollView(
         child: Column(
@@ -68,8 +136,6 @@ final List<EventCard> events = const [
                 style: TextStyle(
                   color: Colors.black,
                   fontSize: 30,
-                  // fontFamily: 'Terraria',
-                  // fontWeight: FontWeight.bold,
                   letterSpacing: 2,
                 ),
               ),
@@ -92,7 +158,8 @@ final List<EventCard> events = const [
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ReservationPage(eventType: events[index].title),
+                            builder: (context) =>
+                                ReservationPage(eventType: events[index].title),
                           ),
                         );
                       },
@@ -145,7 +212,8 @@ final List<EventCard> events = const [
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const MyBookingsPage()),
+                      MaterialPageRoute(
+                          builder: (context) => const MyBookingsPage()),
                     );
                   },
                 ),
@@ -192,7 +260,8 @@ final List<EventCard> events = const [
     );
   }
 
-  Widget _buildDrawerItem(BuildContext context, String title, IconData icon, VoidCallback onTap) {
+  Widget _buildDrawerItem(
+      BuildContext context, String title, IconData icon, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: Colors.white),
       title: Text(
@@ -205,188 +274,188 @@ final List<EventCard> events = const [
 
 // Replace the _buildBookingMadeEasierSection() method in home_screen.dart with this:
 
-Widget _buildBookingMadeEasierSection() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Column(
-      children: [
-        const Text(
-          'Booking made easier!',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            fontStyle: FontStyle.italic,
+  Widget _buildBookingMadeEasierSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          const Text(
+            'Booking made easier!',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
-        // Bento grid layout with properly fitted images
-        SizedBox(
-          height: 300,
-          child: Row(
-            children: [
-              // Left column - 2 small boxes
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 10, bottom: 5),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: double.infinity,
-                            child: Image.asset(
-                              'assets/images/grass.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      '(grass image)',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
+          const SizedBox(height: 20),
+          // Bento grid layout with properly fitted images
+          SizedBox(
+            height: 300,
+            child: Row(
+              children: [
+                // Left column - 2 small boxes
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10, bottom: 5),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: double.infinity,
+                              child: Image.asset(
+                                'assets/images/grass.jpg',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '(grass image)',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 10, top: 5),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: double.infinity,
-                            child: Image.asset(
-                              'assets/images/sky.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      '(sky image)',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10, top: 5),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: double.infinity,
+                              child: Image.asset(
+                                'assets/images/sky.jpg',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '(sky image)',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // Right column - 2 boxes
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(left: 10, bottom: 5),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Container(
-                            width: double.infinity,
-                            height: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                             child: Image.asset(
-                              'assets/images/flowers.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      '(flowers image)',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
+                // Right column - 2 boxes
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 10, bottom: 5),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Container(
+                              width: double.infinity,
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Image.asset(
+                                'assets/images/flowers.jpg',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '(flowers image)',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.only(left: 10, top: 5),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Container(
-                            width: double.infinity,
-                            height: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Image.asset(
-                              'assets/images/bible.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      '(bible image)',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 10, top: 5),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Container(
+                              width: double.infinity,
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Image.asset(
+                                'assets/images/bible.jpg',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '(bible image)',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   void _showAboutDialog(BuildContext context) {
     Navigator.pop(context); // Close drawer first
@@ -407,10 +476,9 @@ Widget _buildBookingMadeEasierSection() {
               Text('Version: 1.0.0'),
               SizedBox(height: 10),
               Text(
-                'This app is designed to make event reservations easier and more convenient. '
-                'You can book various types of events including weddings, baptisms, funerals, '
-                'house blessings, and ordinations.'
-              ),
+                  'This app is designed to make event reservations easier and more convenient. '
+                  'You can book various types of events including weddings, baptisms, funerals, '
+                  'house blessings, and ordinations.'),
               SizedBox(height: 10),
               Text(
                 'Features:',
