@@ -11,6 +11,7 @@ import 'reservation_page.dart';
 import 'my_bookings_page.dart';
 import 'auth_page.dart';
 import '/pages/notification_page.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _statsController;
   late Animation<double> _calendarAnimation;
   late Animation<double> _statsAnimation;
+  
+  // Add StreamSubscription to properly manage listeners
+  StreamSubscription<QuerySnapshot>? _reservationsSubscription;
+  bool _isDisposed = false;
 
   final List<EventCard> events = const [
     EventCard(
@@ -86,7 +91,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Start animations
     _calendarController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
-      _statsController.forward();
+      if (!_isDisposed) {
+        _statsController.forward();
+      }
     });
 
     _loadReservations();
@@ -94,8 +101,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    
+    // Cancel the subscription before disposing
+    _reservationsSubscription?.cancel();
+    
+    // Dispose animation controllers
     _calendarController.dispose();
     _statsController.dispose();
+    
     super.dispose();
   }
 
@@ -103,36 +117,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
 
-    FirebaseFirestore.instance
+    // Cancel existing subscription
+    _reservationsSubscription?.cancel();
+
+    _reservationsSubscription = FirebaseFirestore.instance
         .collection("reservations")
         .where(_showAllEvents ? "status" : "userId",
             isEqualTo: _showAllEvents ? "approved" : userId)
         .snapshots()
-        .listen((snapshot) {
-      Map<DateTime, List<dynamic>> events = {};
+        .listen(
+          (snapshot) {
+            if (_isDisposed) return; // Check if widget is disposed
+            
+            Map<DateTime, List<dynamic>> events = {};
 
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final date = _parseFirebaseDate(data['date']);
-        if (date != null) {
-          final eventDate = DateTime(date.year, date.month, date.day);
-          if (events[eventDate] == null) events[eventDate] = [];
-          events[eventDate]!.add({
-            'id': doc.id,
-            'eventType': data['eventType'] ?? 'Event',
-            'timeFrom': data['timeFrom'] ?? '',
-            'timeTo': data['timeTo'] ?? '',
-            'name': data['name'] ?? 'Unknown',
-            'status': data['status'] ?? 'pending',
-            'isOwn': data['userId'] == userId,
-          });
-        }
-      }
+            for (var doc in snapshot.docs) {
+              final data = doc.data();
+              final date = _parseFirebaseDate(data['date']);
+              if (date != null) {
+                final eventDate = DateTime(date.year, date.month, date.day);
+                if (events[eventDate] == null) events[eventDate] = [];
+                events[eventDate]!.add({
+                  'id': doc.id,
+                  'eventType': data['eventType'] ?? 'Event',
+                  'timeFrom': data['timeFrom'] ?? '',
+                  'timeTo': data['timeTo'] ?? '',
+                  'name': data['name'] ?? 'Unknown',
+                  'status': data['status'] ?? 'pending',
+                  'isOwn': data['userId'] == userId,
+                });
+              }
+            }
 
-      setState(() {
-        _events = events;
-      });
-    });
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _events = events;
+              });
+            }
+          },
+          onError: (error) {
+            if (mounted && !_isDisposed) {
+              debugPrint('Error loading reservations: $error');
+            }
+          },
+        );
   }
 
   DateTime? _parseFirebaseDate(dynamic dateField) {
@@ -193,12 +221,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       icon:
                           const Icon(Icons.notifications, color: Colors.white),
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationsPage(),
-                          ),
-                        );
+                        if (mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsPage(),
+                            ),
+                          );
+                        }
                       },
                     ),
                     if (unreadCount > 0)
@@ -283,13 +313,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           child: EventCardWidget(
                             event: events[index],
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ReservationPage(
-                                      eventType: events[index].title),
-                                ),
-                              );
+                              if (mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReservationPage(
+                                        eventType: events[index].title),
+                                  ),
+                                );
+                              }
                             },
                           ),
                         );
@@ -500,10 +532,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        setState(() {
-                          _showAllEvents = !_showAllEvents;
-                        });
-                        _loadReservations();
+                        if (mounted && !_isDisposed) {
+                          setState(() {
+                            _showAllEvents = !_showAllEvents;
+                          });
+                          _loadReservations();
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -581,14 +615,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Icon(Icons.chevron_right, color: Colors.indigo),
               ),
               onDaySelected: (selectedDay, focusedDay) {
-                if (!mounted) return;
+                if (!mounted || _isDisposed) return;
                 setState(() {
                   _selectedDay = selectedDay;
                   _focusedDay = focusedDay;
                 });
               },
               onPageChanged: (focusedDay) {
-                _focusedDay = focusedDay;
+                if (!_isDisposed) {
+                  _focusedDay = focusedDay;
+                }
               },
             ),
           ),
@@ -767,7 +803,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     BoxShadow(
                       color: feature['color'] as Color,
                       blurRadius: 15,
-                      offset: const Offset(0, 5),
+                      offset: const Offset(5, 5),
                       spreadRadius: -5,
                     ),
                   ],
@@ -844,11 +880,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Icons.book,
                   () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const MyBookingsPage()),
-                    );
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const MyBookingsPage()),
+                      );
+                    }
                   },
                 ),
                 _buildDrawerItem(
@@ -908,100 +946,127 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _showAboutDialog(BuildContext context) {
     Navigator.pop(context); // Close drawer first
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('About'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Event Reservation System',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              SizedBox(height: 10),
-              Text('Version: 1.0.0'),
-              SizedBox(height: 10),
-              Text(
-                  'This app is designed to make event reservations easier and more convenient. '
-                  'You can book various types of events including weddings, baptisms, funerals, '
-                  'house blessings, and ordinations.'),
-              SizedBox(height: 10),
-              Text(
-                'Features:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text('• Easy event booking'),
-              Text('• Reservation management'),
-              Text('• User-friendly interface'),
-              Text('• Secure authentication'),
-              Text('• Calendar overview'),
-              Text('\n\ncreated by: Jhon Kalvin Porteria et. al.'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text('About'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Event Reservation System',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                SizedBox(height: 10),
+                Text('Version: 1.0.0'),
+                SizedBox(height: 10),
+                Text(
+                    'This app is designed to make event reservations easier and more convenient. '
+                    'You can book various types of events including weddings, baptisms, funerals, '
+                    'house blessings, and ordinations.'),
+                SizedBox(height: 10),
+                Text(
+                  'Features:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('• Easy event booking'),
+                Text('• Reservation management'),
+                Text('• User-friendly interface'),
+                Text('• Secure authentication'),
+                Text('• Calendar overview'),
+                Text('\n\ncreated by: Jhon Kalvin Porteria et. al.'),
+              ],
             ),
-          ],
-        );
-      },
-    );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void _exitApp(BuildContext context) {
     Navigator.pop(context); // Close drawer first
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Exit App'),
-          content: const Text('Are you sure you want to exit the app?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => SystemNavigator.pop(),
-              child: const Text('Exit'),
-            ),
-          ],
-        );
-      },
-    );
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text('Exit App'),
+            content: const Text('Are you sure you want to exit the app?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => SystemNavigator.pop(),
+                child: const Text('Exit'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void _logout(BuildContext context) {
     Navigator.pop(context); // Close drawer first
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                UserSession.clearSession();
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthPage()),
-                  (route) => false,
-                );
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  // Store context references before async operations
+                  final navigator = Navigator.of(dialogContext);
+                  
+                  try {
+                    // Clear user session first
+                    UserSession.clearSession();
+                    
+                    // Sign out from Firebase
+                    await FirebaseAuth.instance.signOut();
+                    
+                    // Navigate only if widget is still mounted
+                    if (mounted) {
+                      navigator.pop(); // Close dialog
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AuthPage()),
+                        (route) => false,
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      navigator.pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Logout failed: $e')),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Logout'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 }

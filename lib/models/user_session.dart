@@ -5,33 +5,44 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserSession {
   static String _email = '';
   static final List<ReservationData> _reservations = [];
+  static bool _isCleared = false;
 
   static String get email => _email;
   static List<ReservationData> get reservations =>
       List.unmodifiable(_reservations);
+  static bool get isCleared => _isCleared;
 
   static void setemail(String email) {
     _email = email;
+    _isCleared = false;
   }
 
   static void addReservation(ReservationData reservation) {
-    _reservations.add(reservation);
+    if (!_isCleared) {
+      _reservations.add(reservation);
+    }
   }
 
   static void removeReservation(int index) {
-    if (index >= 0 && index < _reservations.length) {
+    if (!_isCleared && index >= 0 && index < _reservations.length) {
       _reservations.removeAt(index);
     }
   }
 
   static void clearSession() {
+    _isCleared = true;
     _email = '';
     _reservations.clear();
+  }
+
+  // Method to check if session is valid
+  static bool isValidSession() {
+    return !_isCleared && _email.isNotEmpty;
   }
 }
 
 class ReservationData {
-  String reservationId; // 🔹 not final
+  String reservationId;
   final String userId;
   final String eventType;
   final String name;
@@ -71,21 +82,20 @@ class ReservationData {
       contact: data['contact'] ?? '',
       date: (data['date'] is Timestamp)
           ? (data['date'] as Timestamp).toDate()
-          : DateTime.tryParse(data['date'] ?? '') ?? DateTime.now(),
+          : DateTime.tryParse(data['date']?.toString() ?? '') ?? DateTime.now(),
       timeFrom: data['timeFrom'] ?? '',
       timeTo: data['timeTo'] ?? '',
       comments: data['comments'] ?? '',
       status: data['status'] ?? 'pending',
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
+          : DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: (data['updatedAt'] is Timestamp)
           ? (data['updatedAt'] as Timestamp).toDate()
-          : DateTime.now(),
+          : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
-  // ✅ Convert ReservationData → Firestore map
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
