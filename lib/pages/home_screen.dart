@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _statsController;
   late Animation<double> _calendarAnimation;
   late Animation<double> _statsAnimation;
-  
+
   // Add StreamSubscription to properly manage listeners
   StreamSubscription<QuerySnapshot>? _reservationsSubscription;
   bool _isDisposed = false;
@@ -102,14 +102,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _isDisposed = true;
-    
+
     // Cancel the subscription before disposing
     _reservationsSubscription?.cancel();
-    
+
     // Dispose animation controllers
     _calendarController.dispose();
     _statsController.dispose();
-    
+
     super.dispose();
   }
 
@@ -126,41 +126,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             isEqualTo: _showAllEvents ? "approved" : userId)
         .snapshots()
         .listen(
-          (snapshot) {
-            if (_isDisposed) return; // Check if widget is disposed
-            
-            Map<DateTime, List<dynamic>> events = {};
+      (snapshot) {
+        if (_isDisposed) return; // Check if widget is disposed
 
-            for (var doc in snapshot.docs) {
-              final data = doc.data();
-              final date = _parseFirebaseDate(data['date']);
-              if (date != null) {
-                final eventDate = DateTime(date.year, date.month, date.day);
-                if (events[eventDate] == null) events[eventDate] = [];
-                events[eventDate]!.add({
-                  'id': doc.id,
-                  'eventType': data['eventType'] ?? 'Event',
-                  'timeFrom': data['timeFrom'] ?? '',
-                  'timeTo': data['timeTo'] ?? '',
-                  'name': data['name'] ?? 'Unknown',
-                  'status': data['status'] ?? 'pending',
-                  'isOwn': data['userId'] == userId,
-                });
-              }
-            }
+        Map<DateTime, List<dynamic>> events = {};
 
-            if (mounted && !_isDisposed) {
-              setState(() {
-                _events = events;
-              });
-            }
-          },
-          onError: (error) {
-            if (mounted && !_isDisposed) {
-              debugPrint('Error loading reservations: $error');
-            }
-          },
-        );
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final date = _parseFirebaseDate(data['date']);
+          if (date != null) {
+            final eventDate = DateTime(date.year, date.month, date.day);
+            if (events[eventDate] == null) events[eventDate] = [];
+            events[eventDate]!.add({
+              'id': doc.id,
+              'eventType': data['eventType'] ?? 'Event',
+              'timeFrom': data['timeFrom'] ?? '',
+              'timeTo': data['timeTo'] ?? '',
+              'name': data['name'] ?? 'Unknown',
+              'status': data['status'] ?? 'pending',
+              'isOwn': data['userId'] == userId,
+            });
+          }
+        }
+
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _events = events;
+          });
+        }
+      },
+      onError: (error) {
+        if (mounted && !_isDisposed) {
+          debugPrint('Error loading reservations: $error');
+        }
+      },
+    );
   }
 
   DateTime? _parseFirebaseDate(dynamic dateField) {
@@ -407,8 +407,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickStatsSection() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId == null) {
+      return Container(); // Return empty container if no user
+    }
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection("reservations").snapshots(),
+      // Filter reservations by current user's ID
+      stream: FirebaseFirestore.instance
+          .collection("reservations")
+          .where("userId", isEqualTo: userId)
+          .snapshots(),
       builder: (context, snapshot) {
         int totalReservations = 0;
         int approvedReservations = 0;
@@ -444,8 +454,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(
-                  Icons.event_available, 'Total\nEvents', '$totalReservations'),
+              _buildStatItem(Icons.event_available, 'My Total\nEvents',
+                  '$totalReservations'),
               _buildStatItem(
                   Icons.check_circle, 'Approved', '$approvedReservations'),
               _buildStatItem(Icons.schedule, 'Pending', '$pendingReservations'),
@@ -1035,20 +1045,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 onPressed: () async {
                   // Store context references before async operations
                   final navigator = Navigator.of(dialogContext);
-                  
+
                   try {
                     // Clear user session first
                     UserSession.clearSession();
-                    
+
                     // Sign out from Firebase
                     await FirebaseAuth.instance.signOut();
-                    
+
                     // Navigate only if widget is still mounted
                     if (mounted) {
                       navigator.pop(); // Close dialog
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (context) => const AuthPage()),
+                        MaterialPageRoute(
+                            builder: (context) => const AuthPage()),
                         (route) => false,
                       );
                     }
