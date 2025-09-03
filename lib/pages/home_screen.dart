@@ -58,10 +58,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       imagePath: 'assets/images/house_blessing.webp',
     ),
     EventCard(
-      title: 'Ordination',
+      title: 'Communion',
       description:
-          'Celebrate a sacred calling with reverence who will serve the lord.',
-      imagePath: 'assets/images/ordination.jpg',
+          'Experience the unity of faith and bless from lord by communion .',
+      imagePath: 'assets/images/communion.jpg',
     ),
   ];
 
@@ -976,7 +976,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Text(
                     'This app is designed to make event reservations easier and more convenient. '
                     'You can book various types of events including weddings, baptisms, funerals, '
-                    'house blessings, and ordinations.'),
+                    'house blessings, and communions.'),
                 SizedBox(height: 10),
                 Text(
                   'Features:',
