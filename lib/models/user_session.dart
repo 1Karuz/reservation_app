@@ -55,6 +55,7 @@ class ReservationData {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<DocumentImage> documents; // New field for document images
 
   ReservationData({
     required this.reservationId,
@@ -70,9 +71,17 @@ class ReservationData {
     this.status = "pending",
     required this.createdAt,
     required this.updatedAt,
+    this.documents = const [], // Initialize empty list
   });
 
   factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
+    List<DocumentImage> documentsList = [];
+    if (data['documents'] != null && data['documents'] is List) {
+      documentsList = (data['documents'] as List)
+          .map((doc) => DocumentImage.fromMap(doc as Map<String, dynamic>))
+          .toList();
+    }
+
     return ReservationData(
       reservationId: id,
       userId: data['userId'] ?? '',
@@ -93,6 +102,7 @@ class ReservationData {
       updatedAt: (data['updatedAt'] is Timestamp)
           ? (data['updatedAt'] as Timestamp).toDate()
           : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      documents: documentsList,
     );
   }
 
@@ -110,6 +120,41 @@ class ReservationData {
       'status': status,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'documents': documents.map((doc) => doc.toMap()).toList(),
+    };
+  }
+}
+
+class DocumentImage {
+  final String name;
+  final String base64Data;
+  final String type; // 'camera' or 'gallery'
+  final DateTime uploadedAt;
+
+  DocumentImage({
+    required this.name,
+    required this.base64Data,
+    required this.type,
+    required this.uploadedAt,
+  });
+
+  factory DocumentImage.fromMap(Map<String, dynamic> data) {
+    return DocumentImage(
+      name: data['name'] ?? '',
+      base64Data: data['base64Data'] ?? '',
+      type: data['type'] ?? 'gallery',
+      uploadedAt: (data['uploadedAt'] is Timestamp)
+          ? (data['uploadedAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['uploadedAt']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'base64Data': base64Data,
+      'type': type,
+      'uploadedAt': uploadedAt,
     };
   }
 }

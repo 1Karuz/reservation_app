@@ -23,6 +23,12 @@ class EventReservationApp extends StatelessWidget {
     return MaterialApp(
       title: 'Event Reservation System',
       theme: ThemeData(
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: const Color.fromARGB(255, 0, 0, 0), // Your desired cursor color
+          selectionColor:
+              Colors.blue.withOpacity(0.3), // Text selection highlight color
+          selectionHandleColor: const Color.fromARGB(255, 45, 45, 45), // Selection handle color
+        ),
         primarySwatch: Colors.grey,
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
@@ -79,7 +85,7 @@ class _AuthStateManagerState extends State<AuthStateManager> {
     try {
       // Check if first time
       _isFirstTime = await _checkFirstTime();
-      
+
       // If first time, don't set up auth listener yet
       if (_isFirstTime) {
         if (mounted) {
@@ -98,7 +104,7 @@ class _AuthStateManagerState extends State<AuthStateManager> {
               _currentUser = user;
               _isLoading = false;
             });
-            
+
             // Update user session
             if (user != null) {
               UserSession.setemail(user.email ?? '');
@@ -135,8 +141,6 @@ class _AuthStateManagerState extends State<AuthStateManager> {
       return true;
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
