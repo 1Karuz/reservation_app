@@ -15,234 +15,328 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2D2D2D),
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text(
-          'My Reservations',
-          style: TextStyle(color: Colors.white),
-        ),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-      ),
-      body: Center(
-        child: Container(
-          width: 450,
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'RESERVATIONS',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('reservations')
-                      .where('userId',
-                          isEqualTo: FirebaseAuth
-                              .instance.currentUser!.uid) // ✅ filter by userId
-                      .orderBy('createdAt', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-
-                    if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'Error: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        );
-                      }
-
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No reservations found',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final reservations = snapshot.data!.docs.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-
-                      return ReservationData(
-                        reservationId: doc.id,
-                        userId: data['userId'] ?? '',
-                        eventType: data['eventType'] ?? '',
-                        name: data['name'] ?? '',
-                        email: data['email'] ?? '',
-                        contact: data['contact'] ?? '',
-                        date: (data['date'] as Timestamp)
-                            .toDate(), // ✅ convert Timestamp → DateTime
-                        timeFrom: data['timeFrom'] ?? '',
-                        timeTo: data['timeTo'] ?? '',
-                        comments: data['comments'] ?? '',
-                        status: data['status'] ?? 'pending',
-                        createdAt: (data['createdAt'] as Timestamp).toDate(),
-                        updatedAt: (data['updatedAt'] as Timestamp).toDate(),
-                      );
-                    }).toList();
-
-                    return ListView.builder(
-                      itemCount: reservations.length,
-                      itemBuilder: (context, index) {
-                        final reservation = reservations[index];
-                        return Container(
-  margin: const EdgeInsets.only(bottom: 20),
-  padding: const EdgeInsets.all(20),
-  decoration: BoxDecoration(
-    color: const Color(0xFFF0F0F0),
-    borderRadius: BorderRadius.circular(10),
-  ),
-  child: Row(
-    children: [
-      Expanded(
+      backgroundColor: Colors.grey[50],
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 20),
+            // Header
             Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.book,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 15),
                 const Text(
-                  'Event: ',
+                  'My Reservations',
                   style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  reservation.eventType,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 5),
-            _buildInfoRow('Name:', reservation.name),
-            _buildInfoRow('Email:', reservation.email),
-            _buildInfoRow(
-              'Date:',
-              reservation.date.toLocal().toString().split(' ')[0],
+            const SizedBox(height: 10),
+            Text(
+              'Track and manage your event bookings',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
             ),
-            _buildInfoRow(
-              'Time:',
-              '${reservation.timeFrom} - ${reservation.timeTo}',
-            ),
-            _buildInfoRow('Contact No:', reservation.contact),
+            const SizedBox(height: 30),
 
-            // 🔹 Status Badge
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  reservation.status == 'approved'
-                      ? Icons.check_circle
-                      : reservation.status == 'pending'
-                          ? Icons.access_time
-                          : Icons.cancel,
-                  color: reservation.status == 'approved'
-                      ? Colors.green
-                      : reservation.status == 'pending'
-                          ? Colors.orange
-                          : Colors.red,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  reservation.status.toUpperCase(),
-                  style: TextStyle(
-                    color: reservation.status == 'approved'
-                        ? Colors.green
-                        : reservation.status == 'pending'
-                            ? Colors.orange
-                            : Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            // Reservations List
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('reservations')
+                    .where('userId',
+                        isEqualTo: FirebaseAuth.instance.currentUser!.uid)
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 60,
+                            color: Colors.red[300],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error: ${snapshot.error}',
+                            style: TextStyle(
+                              color: Colors.red[600],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Colors.black,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Loading reservations...',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.event_busy,
+                            size: 80,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'No reservations found',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Start by booking your first event!',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final reservations = snapshot.data!.docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return ReservationData(
+                      reservationId: doc.id,
+                      userId: data['userId'] ?? '',
+                      eventType: data['eventType'] ?? '',
+                      name: data['name'] ?? '',
+                      email: data['email'] ?? '',
+                      contact: data['contact'] ?? '',
+                      date: (data['date'] as Timestamp).toDate(),
+                      timeFrom: data['timeFrom'] ?? '',
+                      timeTo: data['timeTo'] ?? '',
+                      comments: data['comments'] ?? '',
+                      status: data['status'] ?? 'pending',
+                      createdAt: (data['createdAt'] as Timestamp).toDate(),
+                      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+                    );
+                  }).toList();
+
+                  return ListView.builder(
+                    itemCount: reservations.length,
+                    itemBuilder: (context, index) {
+                      final reservation = reservations[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header Row
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: _getEventColor(reservation.eventType)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      _getEventIcon(reservation.eventType),
+                                      color: _getEventColor(reservation.eventType),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          reservation.eventType,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Created ${_formatDate(reservation.createdAt)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Status Badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(reservation.status),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getStatusIcon(reservation.status),
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          reservation.status.toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Details
+                              _buildDetailRow(Icons.person_outline, 'Name', reservation.name),
+                              _buildDetailRow(Icons.email_outlined, 'Email', reservation.email),
+                              _buildDetailRow(
+                                Icons.calendar_today_outlined,
+                                'Date',
+                                reservation.date.toLocal().toString().split(' ')[0],
+                              ),
+                              _buildDetailRow(
+                                Icons.access_time_outlined,
+                                'Time',
+                                '${reservation.timeFrom} - ${reservation.timeTo}',
+                              ),
+                              _buildDetailRow(Icons.phone_outlined, 'Contact', reservation.contact),
+
+                              // Comments (if any)
+                              if (reservation.comments.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _buildDetailRow(Icons.message_outlined, 'Comments', reservation.comments),
+                              ],
+
+                              // Delete button for pending reservations
+                              if (reservation.status == "pending") ...[
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: () => _deleteReservation(reservation),
+                                      icon: const Icon(Icons.delete_outline, size: 18),
+                                      label: const Text('Delete'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                        backgroundColor: Colors.red.withOpacity(0.1),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
-        ),
-      ),
-      const SizedBox(width: 15),
-
-      // 🔹 Delete only if status = pending
-      if (reservation.status == "pending")
-        GestureDetector(
-          onTap: () => _deleteReservation(reservation),
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: const BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-        ),
-    ],
-  ),
-);
-
-                      },
-                    );
-                  },
-                ),
-              )
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildDetailRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(
+            icon,
+            size: 16,
+            color: Colors.grey[600],
+          ),
+          const SizedBox(width: 12),
           SizedBox(
             width: 80,
             child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.black,
+              '$label:',
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
               ),
             ),
           ),
@@ -250,8 +344,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             child: Text(
               value.isEmpty ? '-' : value,
               style: const TextStyle(
-                color: Colors.black,
                 fontSize: 14,
+                color: Colors.black87,
               ),
             ),
           ),
@@ -260,62 +354,141 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     );
   }
 
-void _deleteReservation(ReservationData reservation) async {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Delete Reservation'),
-        content:
-            const Text('Are you sure you want to delete this reservation?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              // 🔹 Store context references BEFORE any await
-              final navigator = Navigator.of(context);
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              
-              try {
-                await FirebaseFirestore.instance
-                    .collection('reservations')
-                    .doc(reservation.reservationId)
-                    .delete();
+  IconData _getEventIcon(String eventType) {
+    switch (eventType.toLowerCase()) {
+      case 'wedding':
+        return Icons.favorite;
+      case 'funeral':
+        return Icons.local_florist;
+      case 'baptism':
+        return Icons.child_care;
+      case 'house blessing':
+        return Icons.home;
+      case 'communion':
+        return Icons.church;
+      default:
+        return Icons.event;
+    }
+  }
 
-                // 🔹 Check if widget is still mounted before using stored references
-                if (mounted) {
-                  navigator.pop();
-                  scaffoldMessenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Reservation deleted successfully'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } catch (e) {
-                // 🔹 Check if widget is still mounted before using stored references
-                if (mounted) {
-                  navigator.pop();
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to delete: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+  Color _getEventColor(String eventType) {
+    switch (eventType.toLowerCase()) {
+      case 'wedding':
+        return Colors.pink;
+      case 'funeral':
+        return Colors.purple;
+      case 'baptism':
+        return Colors.blue;
+      case 'house blessing':
+        return Colors.orange;
+      case 'communion':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'approved':
+        return Icons.check_circle;
+      case 'rejected':
+        return Icons.cancel;
+      default:
+        return Icons.access_time;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green[600]!;
+      case 'rejected':
+        return Colors.red[600]!;
+      default:
+        return Colors.orange[600]!;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  void _deleteReservation(ReservationData reservation) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ],
-      );
-    },
-  );
-}
+          title: const Text(
+            'Delete Reservation',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text('Are you sure you want to delete this reservation?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('reservations')
+                      .doc(reservation.reservationId)
+                      .delete();
+
+                  if (mounted) {
+                    navigator.pop();
+                    scaffoldMessenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Reservation deleted successfully'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    navigator.pop();
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete: $e'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

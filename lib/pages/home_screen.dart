@@ -9,7 +9,7 @@ import '../models/user_session.dart';
 import '../widgets/event_card_widget.dart';
 import 'reservation_page.dart';
 import 'my_bookings_page.dart';
-import 'auth_page.dart';
+import 'account_page.dart';
 import '/pages/notification_page.dart';
 import 'dart:async';
 
@@ -29,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _statsController;
   late Animation<double> _calendarAnimation;
   late Animation<double> _statsAnimation;
+  
+  // Bottom navigation
+  int _currentIndex = 0;
+  late PageController _pageController;
 
   // Add StreamSubscription to properly manage listeners
   StreamSubscription<QuerySnapshot>? _reservationsSubscription;
@@ -69,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
+    _pageController = PageController();
 
     // Animation controllers
     _calendarController = AnimationController(
@@ -109,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Dispose animation controllers
     _calendarController.dispose();
     _statsController.dispose();
+    _pageController.dispose();
 
     super.dispose();
   }
@@ -181,6 +187,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  void _onBottomNavTap(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -190,12 +207,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+        title: Row(
+          children: [
+            Text(
+              'Welcome, ${UserSession.email.split('@')[0]}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+            const Spacer(),
+            // Welcome message - placed in AppBar for minimal size
+          ],
         ),
+        automaticallyImplyLeading: false,
         actions: [
           if (userId != null)
             StreamBuilder<QuerySnapshot>(
@@ -262,146 +288,200 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
         ],
       ),
-      drawer: _buildAppDrawer(context),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Hero Section
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black, Colors.grey],
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  const Text(
-                    'EVENTS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Create unforgettable moments',
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 16,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Event Cards
-                  SizedBox(
-                    height: 480,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: events.length,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          width: 300,
-                          height: 480,
-                          margin: const EdgeInsets.only(right: 20),
-                          child: EventCardWidget(
-                            event: events[index],
-                            onTap: () {
-                              if (mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ReservationPage(
-                                        eventType: events[index].title),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                ],
-              ),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        children: [
+          _buildHomePage(),
+          const MyBookingsPage(),
+          const AccountPage(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, -2),
             ),
-
-            const SizedBox(height: 40),
-
-            // Quick Stats Section
-            AnimatedBuilder(
-              animation: _statsAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _statsAnimation.value,
-                  child: Opacity(
-                    opacity: _statsAnimation.value,
-                    child: _buildQuickStatsSection(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 40),
-
-            // Booking Made Easier Section with Calendar
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Booking made easier!',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'View available dates and plan your perfect event',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // Modern Calendar Section
-            AnimatedBuilder(
-              animation: _calendarAnimation,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, 50 * (1 - _calendarAnimation.value)),
-                  child: Opacity(
-                    opacity: _calendarAnimation.value,
-                    child: _buildModernCalendarSection(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 40),
-
-            // Features Section
-            _buildFeaturesSection(),
-
-            const SizedBox(height: 40),
-
-            const SizedBox(height: 40),
           ],
         ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: _onBottomNavTap,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.black,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.grey[400],
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12,
+          ),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.book),
+              label: 'My Bookings',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Account',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomePage() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Hero Section
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.black, Colors.grey],
+              ),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'EVENTS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Create unforgettable moments',
+                  style: TextStyle(
+                    color: Colors.grey[300],
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // Event Cards
+                SizedBox(
+                  height: 480,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: events.length,
+                    itemBuilder: (context, index) {
+                      return Container(
+                        width: 300,
+                        height: 480,
+                        margin: const EdgeInsets.only(right: 20),
+                        child: EventCardWidget(
+                          event: events[index],
+                          onTap: () {
+                            if (mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ReservationPage(
+                                      eventType: events[index].title),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          // Quick Stats Section
+          AnimatedBuilder(
+            animation: _statsAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _statsAnimation.value,
+                child: Opacity(
+                  opacity: _statsAnimation.value,
+                  child: _buildQuickStatsSection(),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 40),
+
+          // Booking Made Easier Section with Calendar
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Booking made easier!',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'View available dates and plan your perfect event',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 30),
+
+          // Modern Calendar Section
+          AnimatedBuilder(
+            animation: _calendarAnimation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(0, 50 * (1 - _calendarAnimation.value)),
+                child: Opacity(
+                  opacity: _calendarAnimation.value,
+                  child: _buildModernCalendarSection(),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 40),
+
+          // Features Section
+          _buildFeaturesSection(),
+
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }
@@ -855,229 +935,5 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
-  }
-
-  Widget _buildAppDrawer(BuildContext context) {
-    return Drawer(
-      backgroundColor: Colors.black,
-      child: Column(
-        children: [
-          const SizedBox(height: 60),
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text(
-              'Menu',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildDrawerItem(
-                  context,
-                  'Home',
-                  Icons.home,
-                  () => Navigator.pop(context),
-                ),
-                _buildDrawerItem(
-                  context,
-                  'My Bookings',
-                  Icons.book,
-                  () {
-                    Navigator.pop(context);
-                    if (mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const MyBookingsPage()),
-                      );
-                    }
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  'About',
-                  Icons.info,
-                  () => _showAboutDialog(context),
-                ),
-                _buildDrawerItem(
-                  context,
-                  'Quit',
-                  Icons.exit_to_app,
-                  () => _exitApp(context),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                const Divider(color: Colors.grey),
-                const SizedBox(height: 10),
-                _buildDrawerItem(
-                  context,
-                  'Log out',
-                  Icons.logout,
-                  () => _logout(context),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Welcome, ${UserSession.email}!',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(
-      BuildContext context, String title, IconData icon, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white),
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.white),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  void _showAboutDialog(BuildContext context) {
-    Navigator.pop(context); // Close drawer first
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            title: const Text('About'),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Event Reservation System',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                SizedBox(height: 10),
-                Text('Version: 1.0.0'),
-                SizedBox(height: 10),
-                Text(
-                    'This app is designed to make event reservations easier and more convenient. '
-                    'You can book various types of events including weddings, baptisms, funerals, '
-                    'house blessings, and communions.'),
-                SizedBox(height: 10),
-                Text(
-                  'Features:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text('• Easy event booking'),
-                Text('• Reservation management'),
-                Text('• User-friendly interface'),
-                Text('• Secure authentication'),
-                Text('• Calendar overview'),
-                Text('\n\ncreated by: Jhon Kalvin Porteria et. al.'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Close'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-  }
-
-  void _exitApp(BuildContext context) {
-    Navigator.pop(context); // Close drawer first
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            title: const Text('Exit App'),
-            content: const Text('Are you sure you want to exit the app?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => SystemNavigator.pop(),
-                child: const Text('Exit'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-  }
-
-  void _logout(BuildContext context) {
-    Navigator.pop(context); // Close drawer first
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            title: const Text('Logout'),
-            content: const Text('Are you sure you want to logout?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  // Store context references before async operations
-                  final navigator = Navigator.of(dialogContext);
-
-                  try {
-                    // Clear user session first
-                    UserSession.clearSession();
-
-                    // Sign out from Firebase
-                    await FirebaseAuth.instance.signOut();
-
-                    // Navigate only if widget is still mounted
-                    if (mounted) {
-                      navigator.pop(); // Close dialog
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const AuthPage()),
-                        (route) => false,
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      navigator.pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Logout failed: $e')),
-                      );
-                    }
-                  }
-                },
-                child: const Text('Logout'),
-              ),
-            ],
-          );
-        },
-      );
-    }
   }
 }
