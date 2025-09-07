@@ -90,148 +90,144 @@ class _ReservationPageState extends State<ReservationPage> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Card(
-              elevation: 40,
-              shadowColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(30),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Colors.black,
-                              Colors.grey,
+        // Reduced padding from 20 to 8 for minimal side padding
+        padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
+        child: Card(
+          elevation: 8,
+          shadowColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+          // Removed the Center widget and maxWidth constraint that was limiting width
+          child: Padding(
+            // Reduced padding from 30 to 16 inside the card
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Colors.black,
+                          Colors.grey,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _getEventIcon(widget.eventType),
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Booking for',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                widget.eventType,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(15),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _getEventIcon(widget.eventType),
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Booking for',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    widget.eventType,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-
-                      // Personal Information Section
-                      _buildSectionHeader('Personal Information', Icons.person),
-                      const SizedBox(height: 20),
-                      _buildModernTextField('Name', nameController,
-                          icon: Icons.person_outline, isRequired: true),
-                      const SizedBox(height: 20),
-                      _buildModernTextField('Contact Number', contactController,
-                          icon: Icons.phone_outlined,
-                          isRequired: true,
-                          isPhone: true),
-                      const SizedBox(height: 30),
-
-                      // Event Details Section
-                      _buildSectionHeader('Event Details', Icons.event),
-                      const SizedBox(height: 20),
-                      _buildDateField(),
-                      const SizedBox(height: 20),
-                      _buildTimeField(),
-                      const SizedBox(height: 20),
-                      _buildModernTextField(
-                          'Additional Comments', commentsController,
-                          icon: Icons.message_outlined, maxLines: 4),
-                      const SizedBox(height: 30),
-
-                      // Document Requirements Section
-                      if (widget.eventType.toLowerCase() !=
-                          'house blessing') ...[
-                        _buildSectionHeader(
-                            'Document Requirements', Icons.description),
-                        const SizedBox(height: 15),
-                        _buildRequirementsCard(requirements),
-                        const SizedBox(height: 20),
-                        _buildDocumentUploadSection(),
-                        const SizedBox(height: 30),
-                      ] else ...[
-                        _buildSectionHeader('Note', Icons.info_outline),
-                        const SizedBox(height: 15),
-                        _buildRequirementsCard(requirements),
-                        const SizedBox(height: 30),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
 
-                      // Submit Button
-                      Center(
-                        child: Container(
-                          width: double.infinity,
-                          height: 55,
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isSaving ? null : _saveReservation,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            child: _isSaving
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text(
-                                    'Submit Reservation',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ),
+                  // Personal Information Section
+                  _buildSectionHeader('Personal Information', Icons.person),
+                  const SizedBox(height: 20),
+                  _buildModernTextField('Name', nameController,
+                      icon: Icons.person_outline, isRequired: true),
+                  const SizedBox(height: 20),
+                  _buildModernTextField('Contact Number', contactController,
+                      icon: Icons.phone_outlined,
+                      isRequired: true,
+                      isPhone: true),
+                  const SizedBox(height: 30),
+
+                  // Event Details Section
+                  _buildSectionHeader('Event Details', Icons.event),
+                  const SizedBox(height: 20),
+                  _buildDateField(),
+                  const SizedBox(height: 20),
+                  _buildTimeField(),
+                  const SizedBox(height: 20),
+                  _buildModernTextField(
+                      'Additional Comments', commentsController,
+                      icon: Icons.message_outlined, maxLines: 4),
+                  const SizedBox(height: 30),
+
+                  // Document Requirements Section
+                  if (widget.eventType.toLowerCase() !=
+                      'house blessing') ...[
+                    _buildSectionHeader(
+                        'Document Requirements', Icons.description),
+                    const SizedBox(height: 15),
+                    _buildRequirementsCard(requirements),
+                    const SizedBox(height: 20),
+                    _buildDocumentUploadSection(),
+                    const SizedBox(height: 30),
+                  ] else ...[
+                    _buildSectionHeader('Note', Icons.info_outline),
+                    const SizedBox(height: 15),
+                    _buildRequirementsCard(requirements),
+                    const SizedBox(height: 30),
+                  ],
+
+                  // Submit Button
+                  Container(
+                    width: double.infinity,
+                    height: 55,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _saveReservation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                    ],
+                      child: _isSaving
+                          ? const CircularProgressIndicator(
+                              color: Colors.white)
+                          : const Text(
+                              'Submit Reservation',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
