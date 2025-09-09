@@ -34,6 +34,138 @@ class _ReservationPageState extends State<ReservationPage> {
   List<DocumentImage> uploadedDocuments = [];
   final ImagePicker _picker = ImagePicker();
 
+  // Store approved reservations for validation
+  List<Map<String, dynamic>> approvedReservations = [];
+  bool _isLoadingReservations = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApprovedReservations();
+  }
+
+  // Load all approved reservations for validation
+  Future<void> _loadApprovedReservations() async {
+    setState(() => _isLoadingReservations = true);
+    
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('reservations')
+          .where('status', isEqualTo: 'approved')
+          .get();
+
+      approvedReservations = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'eventType': data['eventType'] ?? '',
+          'date': (data['date'] as Timestamp).toDate(),
+          'timeFrom': data['timeFrom'] ?? '',
+          'timeTo': data['timeTo'] ?? '',
+        };
+      }).toList();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading reservations: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isLoadingReservations = false);
+    }
+  }
+
+  // Check if a date is available for booking
+  bool _isDateAvailable(DateTime date) {
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final reservationsOnDate = approvedReservations.where((res) {
+      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
+      return resDate.isAtSameMomentAs(dateOnly);
+    }).toList();
+
+    // Wedding constraint: Only one wedding per day
+    if (widget.eventType.toLowerCase() == 'wedding') {
+      return !reservationsOnDate.any((res) => res['eventType'].toLowerCase() == 'wedding');
+    }
+
+    // Other events: Maximum 2 per day, but no weddings can be mixed
+    if (reservationsOnDate.length >= 2) return false;
+    
+    // If there's already a wedding on this date, no other events allowed
+    if (reservationsOnDate.any((res) => res['eventType'].toLowerCase() == 'wedding')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Get conflicting time slots for a specific date
+  List<String> _getConflictingTimeSlots(DateTime date) {
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final reservationsOnDate = approvedReservations.where((res) {
+      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
+      return resDate.isAtSameMomentAs(dateOnly);
+    }).toList();
+
+    return reservationsOnDate.map((res) => '${res['timeFrom']} - ${res['timeTo']}').toList();
+  }
+
+  // Check if selected time conflicts with existing bookings
+  bool _isTimeSlotAvailable(DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final reservationsOnDate = approvedReservations.where((res) {
+      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
+      return resDate.isAtSameMomentAs(dateOnly);
+    }).toList();
+
+    final selectedFromMinutes = fromTime.hour * 60 + fromTime.minute;
+    final selectedToMinutes = toTime.hour * 60 + toTime.minute;
+
+    for (final reservation in reservationsOnDate) {
+      final existingFrom = _parseTimeString(reservation['timeFrom']);
+      final existingTo = _parseTimeString(reservation['timeTo']);
+      
+      if (existingFrom != null && existingTo != null) {
+        final existingFromMinutes = existingFrom.hour * 60 + existingFrom.minute;
+        final existingToMinutes = existingTo.hour * 60 + existingTo.minute;
+
+        // Check for time overlap
+        bool hasOverlap = !(selectedToMinutes <= existingFromMinutes || 
+                           selectedFromMinutes >= existingToMinutes);
+        
+        if (hasOverlap) return false;
+      }
+    }
+    return true;
+  }
+
+  // Parse time string to TimeOfDay
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        final hour = int.parse(parts[0]);
+        final minutePart = parts[1].split(' ')[0]; // Remove AM/PM if present
+        final minute = int.parse(minutePart);
+        
+        // Handle AM/PM
+        int finalHour = hour;
+        if (timeStr.toLowerCase().contains('pm') && hour != 12) {
+          finalHour += 12;
+        } else if (timeStr.toLowerCase().contains('am') && hour == 12) {
+          finalHour = 0;
+        }
+        
+        return TimeOfDay(hour: finalHour, minute: minute);
+      }
+    } catch (e) {
+      // Handle parsing errors
+    }
+    return null;
+  }
+
   // Document requirements based on event type
   Map<String, List<String>> getRequiredDocuments() {
     switch (widget.eventType.toLowerCase()) {
@@ -89,150 +221,149 @@ class _ReservationPageState extends State<ReservationPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        // Reduced padding from 20 to 8 for minimal side padding
-        padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
-        child: Card(
-          elevation: 8,
-          shadowColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-          // Removed the Center widget and maxWidth constraint that was limiting width
-          child: Padding(
-            // Reduced padding from 30 to 16 inside the card
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Colors.black,
-                          Colors.grey,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
+      body: _isLoadingReservations 
+          ? const Center(child: CircularProgressIndicator(color: Colors.black))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
+              child: Card(
+                elevation: 8,
+                shadowColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          _getEventIcon(widget.eventType),
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Colors.black,
+                                Colors.grey,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Row(
                             children: [
-                              const Text(
-                                'Booking for',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
+                              Icon(
+                                _getEventIcon(widget.eventType),
+                                color: Colors.white,
+                                size: 30,
                               ),
-                              Text(
-                                widget.eventType,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Booking for',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      widget.eventType,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(height: 30),
+
+                        // Personal Information Section
+                        _buildSectionHeader('Personal Information', Icons.person),
+                        const SizedBox(height: 20),
+                        _buildModernTextField('Name', nameController,
+                            icon: Icons.person_outline, isRequired: true),
+                        const SizedBox(height: 20),
+                        _buildModernTextField('Contact Number', contactController,
+                            icon: Icons.phone_outlined,
+                            isRequired: true,
+                            isPhone: true),
+                        const SizedBox(height: 30),
+
+                        // Event Details Section
+                        _buildSectionHeader('Event Details', Icons.event),
+                        const SizedBox(height: 20),
+                        _buildDateField(),
+                        const SizedBox(height: 20),
+                        _buildTimeField(),
+                        const SizedBox(height: 20),
+                        _buildModernTextField(
+                            'Additional Comments', commentsController,
+                            icon: Icons.message_outlined, maxLines: 4),
+                        const SizedBox(height: 30),
+
+                        // Document Requirements Section
+                        if (widget.eventType.toLowerCase() !=
+                            'house blessing') ...[
+                          _buildSectionHeader(
+                              'Document Requirements', Icons.description),
+                          const SizedBox(height: 15),
+                          _buildRequirementsCard(requirements),
+                          const SizedBox(height: 20),
+                          _buildDocumentUploadSection(),
+                          const SizedBox(height: 30),
+                        ] else ...[
+                          _buildSectionHeader('Note', Icons.info_outline),
+                          const SizedBox(height: 15),
+                          _buildRequirementsCard(requirements),
+                          const SizedBox(height: 30),
+                        ],
+
+                        // Submit Button
+                        Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isSaving ? null : _saveReservation,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: _isSaving
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text(
+                                    'Submit Reservation',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 30),
-
-                  // Personal Information Section
-                  _buildSectionHeader('Personal Information', Icons.person),
-                  const SizedBox(height: 20),
-                  _buildModernTextField('Name', nameController,
-                      icon: Icons.person_outline, isRequired: true),
-                  const SizedBox(height: 20),
-                  _buildModernTextField('Contact Number', contactController,
-                      icon: Icons.phone_outlined,
-                      isRequired: true,
-                      isPhone: true),
-                  const SizedBox(height: 30),
-
-                  // Event Details Section
-                  _buildSectionHeader('Event Details', Icons.event),
-                  const SizedBox(height: 20),
-                  _buildDateField(),
-                  const SizedBox(height: 20),
-                  _buildTimeField(),
-                  const SizedBox(height: 20),
-                  _buildModernTextField(
-                      'Additional Comments', commentsController,
-                      icon: Icons.message_outlined, maxLines: 4),
-                  const SizedBox(height: 30),
-
-                  // Document Requirements Section
-                  if (widget.eventType.toLowerCase() !=
-                      'house blessing') ...[
-                    _buildSectionHeader(
-                        'Document Requirements', Icons.description),
-                    const SizedBox(height: 15),
-                    _buildRequirementsCard(requirements),
-                    const SizedBox(height: 20),
-                    _buildDocumentUploadSection(),
-                    const SizedBox(height: 30),
-                  ] else ...[
-                    _buildSectionHeader('Note', Icons.info_outline),
-                    const SizedBox(height: 15),
-                    _buildRequirementsCard(requirements),
-                    const SizedBox(height: 30),
-                  ],
-
-                  // Submit Button
-                  Container(
-                    width: double.infinity,
-                    height: 55,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveReservation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: _isSaving
-                          ? const CircularProgressIndicator(
-                              color: Colors.white)
-                          : const Text(
-                              'Submit Reservation',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -311,7 +442,7 @@ class _ReservationPageState extends State<ReservationPage> {
         },
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.black), // Change this color
+          labelStyle: const TextStyle(color: Colors.black),
           prefixIcon: icon != null ? Icon(icon, color: Colors.black) : null,
           filled: true,
           fillColor: Colors.white,
@@ -367,6 +498,10 @@ class _ReservationPageState extends State<ReservationPage> {
             initialDate: selectedDate ?? DateTime.now(),
             firstDate: DateTime.now(),
             lastDate: DateTime.now().add(const Duration(days: 365)),
+            selectableDayPredicate: (DateTime date) {
+              // Check if date is available for booking
+              return _isDateAvailable(date);
+            },
             builder: (context, child) {
               return Theme(
                 data: Theme.of(context).copyWith(
@@ -380,11 +515,15 @@ class _ReservationPageState extends State<ReservationPage> {
               );
             },
           );
-          if (picked != null && picked != selectedDate) {
+          
+          if (picked != null) {
             setState(() {
               selectedDate = picked;
-              dateController.text =
-                  "${picked.day}/${picked.month}/${picked.year}";
+              dateController.text = "${picked.day}/${picked.month}/${picked.year}";
+              // Clear time when date changes
+              selectedFromTime = null;
+              selectedToTime = null;
+              timeController.clear();
             });
           }
         },
@@ -438,21 +577,45 @@ class _ReservationPageState extends State<ReservationPage> {
           return null;
         },
         onTap: () async {
+          if (selectedDate == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Please select a date first'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height - 150,
+                  right: 20,
+                  left: 20,
+                ),
+              ),
+            );
+            return;
+          }
+
+          // Reload reservations to get the latest data
+          await _loadApprovedReservations();
+
           final scaffoldMessenger = ScaffoldMessenger.of(context);
 
           final fromPicked = await showTimePicker(
             context: context,
-            initialTime:
-                selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
+            initialTime: selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
           );
           if (fromPicked == null) return;
 
           if (fromPicked.hour < 7 || fromPicked.hour > 17) {
             if (mounted) {
               scaffoldMessenger.showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('Time must be between 7:00 AM and 5:00 PM'),
                   backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height - 150,
+                    right: 20,
+                    left: 20,
+                  ),
                 ),
               );
             }
@@ -469,9 +632,15 @@ class _ReservationPageState extends State<ReservationPage> {
           if (toPicked.hour < 7 || toPicked.hour > 17) {
             if (mounted) {
               scaffoldMessenger.showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('Time must be between 7:00 AM and 5:00 PM'),
                   backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height - 150,
+                    right: 20,
+                    left: 20,
+                  ),
                 ),
               );
             }
@@ -484,9 +653,45 @@ class _ReservationPageState extends State<ReservationPage> {
           if (toMinutes <= fromMinutes) {
             if (mounted) {
               scaffoldMessenger.showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('End time must be after start time'),
                   backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height - 150,
+                    right: 20,
+                    left: 20,
+                  ),
+                ),
+              );
+            }
+            return;
+          }
+
+          // Check for time slot conflicts
+          debugPrint('Checking time slot availability...');
+          if (!_isTimeSlotAvailable(selectedDate!, fromPicked, toPicked)) {
+            final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
+            String conflictMessage;
+            
+            if (conflictingSlots.isNotEmpty) {
+              conflictMessage = '${fromPicked.format(context)} - ${toPicked.format(context)} conflicts with existing bookings: ${conflictingSlots.join(', ')} are already reserved';
+            } else {
+              conflictMessage = 'Selected time slot ${fromPicked.format(context)} - ${toPicked.format(context)} is not available';
+            }
+            
+            if (mounted) {
+              scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Text(conflictMessage),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height - 150,
+                    right: 20,
+                    left: 20,
+                  ),
+                  duration: Duration(seconds: 5),
                 ),
               );
             }
@@ -500,6 +705,21 @@ class _ReservationPageState extends State<ReservationPage> {
               timeController.text =
                   '${fromPicked.format(context)} - ${toPicked.format(context)}';
             });
+            
+            // Show success message
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('Time slot selected successfully'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height - 150,
+                  right: 20,
+                  left: 20,
+                ),
+                duration: Duration(seconds: 2),
+              ),
+            );
           }
         },
         decoration: InputDecoration(
@@ -537,7 +757,6 @@ class _ReservationPageState extends State<ReservationPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.redAccent[300],
-        // color: Colors.redAccent[500],
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.red),
       ),
@@ -855,6 +1074,46 @@ class _ReservationPageState extends State<ReservationPage> {
           const SnackBar(
             content: Text('Please upload at least one required document'),
             backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      // Final validation before saving
+      if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Selected date is no longer available'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height - 150,
+              right: 20,
+              left: 20,
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (selectedDate != null && selectedFromTime != null && selectedToTime != null &&
+          !_isTimeSlotAvailable(selectedDate!, selectedFromTime!, selectedToTime!)) {
+        final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
+        String conflictMessage = 'Selected time conflicts with existing bookings: ';
+        conflictMessage += conflictingSlots.join(', ');
+        conflictMessage += ' are already reserved';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(conflictMessage),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height - 150,
+              right: 20,
+              left: 20,
+            ),
+            duration: Duration(seconds: 4),
           ),
         );
         return;
