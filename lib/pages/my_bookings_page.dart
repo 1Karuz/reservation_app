@@ -364,7 +364,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         return Icons.child_care;
       case 'house blessing':
         return Icons.home;
-      case 'communion':
+      case 'confession':
         return Icons.church;
       default:
         return Icons.event;
@@ -381,7 +381,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         return Colors.blue;
       case 'house blessing':
         return Colors.orange;
-      case 'communion':
+      case 'confession':
         return Colors.green;
       default:
         return Colors.grey;

@@ -61,9 +61,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       imagePath: 'assets/images/house_blessing.webp',
     ),
     EventCard(
-      title: 'Communion',
+      title: 'Confession',
       description:
-          'Experience the unity of faith and bless from lord by communion .',
+          'Experience the unity of faith and bless from lord by confession .',
       imagePath: 'assets/images/communion.jpg',
     ),
   ];
