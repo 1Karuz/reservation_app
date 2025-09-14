@@ -215,17 +215,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   horizontal: 20,
                   vertical: 8,
                 ),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _getIconColor(status).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getStatusIcon(status),
-                    color: _getIconColor(status),
-                    size: 24,
-                  ),
+                leading: Icon( // Changed from Container to just Icon
+                  _getStatusIcon(status),
+                  color: _getIconColor(status),
+                  size: 30, // Slightly larger size
                 ),
                 title: Text(
                   message,
