@@ -85,19 +85,23 @@ class _ReservationPageState extends State<ReservationPage> {
       return resDate.isAtSameMomentAs(dateOnly);
     }).toList();
 
-    // Wedding constraint: Only one wedding per day
+    // Wedding constraint: Maximum 2 weddings per day
     if (widget.eventType.toLowerCase() == 'wedding') {
-      return !reservationsOnDate.any((res) => res['eventType'].toLowerCase() == 'wedding');
+      final weddingsOnDate = reservationsOnDate.where((res) => res['eventType'].toLowerCase() == 'wedding').length;
+      return weddingsOnDate < 2;
     }
 
-    // Other events: Maximum 2 per day, but no weddings can be mixed
+    // Funeral constraint: No funerals on Monday (1) and Saturday (6)
+    if (widget.eventType.toLowerCase() == 'funeral') {
+      if (date.weekday == DateTime.monday || date.weekday == DateTime.saturday) {
+        return false;
+      }
+    }
+
+    // General constraint: Maximum 2 events per day (regardless of type)
     if (reservationsOnDate.length >= 2) return false;
-    
-    // If there's already a wedding on this date, no other events allowed
-    if (reservationsOnDate.any((res) => res['eventType'].toLowerCase() == 'wedding')) {
-      return false;
-    }
 
+    // All other constraints passed
     return true;
   }
 
@@ -1187,5 +1191,4 @@ class _ReservationPageState extends State<ReservationPage> {
     commentsController.dispose();
     timeController.dispose();
     super.dispose();
-  }
-}
+  }}
