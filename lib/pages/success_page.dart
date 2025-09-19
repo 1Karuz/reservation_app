@@ -25,9 +25,9 @@ final String timeTo;
   String _getServiceTagline(String eventType) {
     switch (eventType.toLowerCase()) {
       case 'wedding':
-        return "Your wedding ceremony is confirmed. The customary church stipend for the sacrament of Matrimony is approximately ₱5,000 - ₱15,000. Please coordinate with the parish office to finalize this offering and any additional arrangements.";
+        return "Your wedding ceremony is confirmed. The customary church stipend for the sacrament of Matrimony is approximately ₱5,000 - ₱12,000. Please coordinate with the parish office to finalize this offering and any additional arrangements.";
       case 'baptism':
-        return "Your child's Baptism is reserved. A customary donation of around ₱500 - ₱2,500 for the church's ministry is appreciated. Kindly be ready to offer this stipend at the parish office on the day of the baptism.";
+        return "Your child's Baptism is reserved. A customary donation of around ₱400 - ₱2,500 for the church's ministry is appreciated. Kindly be ready to offer this stipend at the parish office on the day of the baptism.";
       case 'funeral':
         return "We are sorry for your loss. The funeral mass has been arranged. A stipend of approximately ₱1,000 - ₱5,000 for the celebrant and church is customary. Please settle this at the parish office at your convenience.";
       case 'house blessing':
