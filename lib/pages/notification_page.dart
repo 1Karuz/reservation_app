@@ -59,6 +59,90 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return 'info';
   }
 
+  // Parse rejection message to extract structured data
+  Map<String, String?> _parseRejectionMessage(String message) {
+    // Default structure
+    Map<String, String?> result = {
+      'title': 'Your reservation was rejected',
+      'reason': null,
+      'adminComment': null,
+    };
+
+    if (!message.toLowerCase().contains('rejected')) {
+      return {'title': message, 'reason': null, 'adminComment': null};
+    }
+
+    // Debug print to see the actual message format
+    print('Parsing message: $message');
+
+    // Try to extract reason - handle both formats
+    final reasonMatch = RegExp(r'Reason:\s*(.+?)(?:\s+Additional details:|$)', 
+        caseSensitive: false, dotAll: true).firstMatch(message);
+    
+    if (reasonMatch != null) {
+      result['reason'] = reasonMatch.group(1)?.trim();
+    }
+
+    // Try to extract additional details/comments
+    final additionalMatch = RegExp(r'Additional details:\s*(.+)', 
+        caseSensitive: false, dotAll: true).firstMatch(message);
+    
+    if (additionalMatch != null) {
+      result['adminComment'] = additionalMatch.group(1)?.trim();
+    }
+
+    // If no structured format found, try alternative parsing
+    if (result['reason'] == null) {
+      // Try to extract everything after "rejected" as reason
+      final altMatch = RegExp(r'rejected\.?\s*(.+)', 
+          caseSensitive: false, dotAll: true).firstMatch(message);
+      if (altMatch != null) {
+        String fullReason = altMatch.group(1)?.trim() ?? '';
+        
+        // Check if there's "Additional details" in the full reason
+        if (fullReason.toLowerCase().contains('additional details:')) {
+          final parts = fullReason.split(RegExp(r'additional details:', caseSensitive: false));
+          if (parts.length >= 2) {
+            result['reason'] = parts[0].trim();
+            result['adminComment'] = parts[1].trim();
+          }
+        } else {
+          result['reason'] = fullReason;
+        }
+      }
+    }
+
+    print('Parsed result: $result');
+    return result;
+  }
+
+  // Get reason icon based on rejection reason
+  IconData _getReasonIcon(String? reason) {
+    if (reason == null) return Icons.info_outline;
+    
+    final reasonLower = reason.toLowerCase();
+    if (reasonLower.contains('conflict') || reasonLower.contains('date')) {
+      return Icons.schedule_outlined;
+    } else if (reasonLower.contains('incomplete') || reasonLower.contains('missing')) {
+      return Icons.description_outlined;
+    } else if (reasonLower.contains('invalid') || reasonLower.contains('expired')) {
+      return Icons.error_outline;
+    } else if (reasonLower.contains('capacity') || reasonLower.contains('exceeded')) {
+      return Icons.groups_outlined;
+    } else if (reasonLower.contains('policy') || reasonLower.contains('violation')) {
+      return Icons.gavel_outlined;
+    } else if (reasonLower.contains('advance') || reasonLower.contains('notice')) {
+      return Icons.access_time_outlined;
+    } else if (reasonLower.contains('payment')) {
+      return Icons.payment_outlined;
+    } else if (reasonLower.contains('maintenance')) {
+      return Icons.build_outlined;
+    } else if (reasonLower.contains('religious')) {
+      return Icons.church_outlined;
+    }
+    return Icons.info_outline;
+  }
+
   // Get container color based on status
   Color _getContainerColor(String status) {
     switch (status) {
@@ -110,6 +194,314 @@ class _NotificationsPageState extends State<NotificationsPage> {
       default:
         return Colors.blue.shade600;
     }
+  }
+
+  // Build rejection notification with structured layout
+  Widget _buildRejectionNotification(String message, String formattedDate, bool read) {
+    final parsed = _parseRejectionMessage(message);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade200, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.shade100,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(15),
+                topRight: Radius.circular(15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cancel,
+                  color: Colors.red.shade700,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        parsed['title'] ?? 'Reservation Update',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade800,
+                        ),
+                      ),
+                      if (formattedDate.isNotEmpty)
+                        Text(
+                          formattedDate,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'REJECTED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Content section
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Reason section
+                if (parsed['reason'] != null && parsed['reason']!.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          _getReasonIcon(parsed['reason']),
+                          color: Colors.red.shade600,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Rejection Reason',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              parsed['reason']!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                
+                // Admin comment section
+                if (parsed['adminComment'] != null && parsed['adminComment']!.isNotEmpty) ...[
+                  if (parsed['reason'] != null && parsed['reason']!.isNotEmpty)
+                    const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings,
+                          color: Colors.orange.shade600,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Admin Comment',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                parsed['adminComment']!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade700,
+                                  height: 1.3,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // If no structured data, show original message
+                if ((parsed['reason'] == null || parsed['reason']!.isEmpty) &&
+                    (parsed['adminComment'] == null || parsed['adminComment']!.isEmpty)) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.info_outline,
+                          color: Colors.red.shade600,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          message,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Build regular notification
+  Widget _buildRegularNotification(Map<String, dynamic> data, String formattedDate, String status) {
+    final message = data['message'] ?? "No message";
+    final read = data['read'] ?? false;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: _getContainerColor(status),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _getBorderColor(status),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 8,
+        ),
+        leading: Icon(
+          _getStatusIcon(status),
+          color: _getIconColor(status),
+          size: 30,
+        ),
+        title: Text(
+          message,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: read ? FontWeight.w500 : FontWeight.w600,
+            color: Colors.grey.shade800,
+          ),
+        ),
+        subtitle: formattedDate.isNotEmpty
+            ? Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  formattedDate,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              )
+            : null,
+        trailing: status != 'info'
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _getIconColor(status),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : !read
+                ? Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : null,
+      ),
+    );
   }
 
   Widget _buildNotificationsList() {
@@ -193,84 +585,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             
             final status = _getNotificationStatus(message);
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: _getContainerColor(status),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _getBorderColor(status),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                leading: Icon( // Changed from Container to just Icon
-                  _getStatusIcon(status),
-                  color: _getIconColor(status),
-                  size: 30, // Slightly larger size
-                ),
-                title: Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: read ? FontWeight.w500 : FontWeight.w600,
-                    color: Colors.grey.shade800,
-                  ),
-                ),
-                subtitle: formattedDate.isNotEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          formattedDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      )
-                    : null,
-                trailing: status != 'info'
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getIconColor(status),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    : !read
-                        ? Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          )
-                        : null,
-              ),
-            );
+            // Use special layout for rejection notifications
+            if (status == 'rejected') {
+              return _buildRejectionNotification(message, formattedDate, read);
+            } else {
+              return _buildRegularNotification(data, formattedDate, status);
+            }
           },
         );
       },
