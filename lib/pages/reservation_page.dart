@@ -47,7 +47,7 @@ class _ReservationPageState extends State<ReservationPage> {
   // Load all approved reservations for validation
   Future<void> _loadApprovedReservations() async {
     setState(() => _isLoadingReservations = true);
-    
+
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('reservations')
@@ -73,87 +73,144 @@ class _ReservationPageState extends State<ReservationPage> {
         );
       }
     } finally {
-      setState(() => _isLoadingReservations = false);
+      if (mounted) {
+        setState(() => _isLoadingReservations = false);
+      }
     }
   }
 
   // Check if a date is available for booking
   bool _isDateAvailable(DateTime date) {
-    final dateOnly = DateTime(date.year, date.month, date.day);
-    final reservationsOnDate = approvedReservations.where((res) {
-      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
-      return resDate.isAtSameMomentAs(dateOnly);
-    }).toList();
-
-    // Wedding constraint: Maximum 2 weddings per day
-    if (widget.eventType.toLowerCase() == 'wedding') {
-      final weddingsOnDate = reservationsOnDate.where((res) => res['eventType'].toLowerCase() == 'wedding').length;
-      return weddingsOnDate < 2;
-    }
-
-    // Funeral constraint: No funerals on Monday (1) and Saturday (6)
-    if (widget.eventType.toLowerCase() == 'funeral') {
-      if (date.weekday == DateTime.monday || date.weekday == DateTime.saturday) {
+    try {
+      // Basic validation
+      if (date.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
         return false;
       }
+
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final reservationsOnDate = approvedReservations.where((res) {
+        try {
+          final resDate = res['date'] as DateTime;
+          final resDateOnly =
+              DateTime(resDate.year, resDate.month, resDate.day);
+          return resDateOnly.isAtSameMomentAs(dateOnly);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+
+      // Wedding constraints
+      if (widget.eventType.toLowerCase() == 'wedding') {
+        // No weddings on Sunday (7)
+        if (date.weekday == DateTime.sunday) {
+          return false;
+        }
+        // Maximum 2 weddings per day
+        final weddingsOnDate = reservationsOnDate
+            .where((res) =>
+                (res['eventType'] ?? '').toString().toLowerCase() == 'wedding')
+            .length;
+        if (weddingsOnDate >= 2) return false;
+      }
+
+      // Funeral constraint: No funerals on Monday (1) and Saturday (6)
+      if (widget.eventType.toLowerCase() == 'funeral') {
+        if (date.weekday == DateTime.monday ||
+            date.weekday == DateTime.saturday) {
+          return false;
+        }
+      }
+
+      // General constraint: Maximum 2 events per day (regardless of type)
+      if (reservationsOnDate.length >= 2) return false;
+
+      // All other constraints passed
+      return true;
+    } catch (e) {
+      // If there's any error in validation, default to allowing the date
+      debugPrint('Error in date validation: $e');
+      return true;
     }
-
-    // General constraint: Maximum 2 events per day (regardless of type)
-    if (reservationsOnDate.length >= 2) return false;
-
-    // All other constraints passed
-    return true;
   }
 
   // Get conflicting time slots for a specific date
   List<String> _getConflictingTimeSlots(DateTime date) {
-    final dateOnly = DateTime(date.year, date.month, date.day);
-    final reservationsOnDate = approvedReservations.where((res) {
-      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
-      return resDate.isAtSameMomentAs(dateOnly);
-    }).toList();
+    try {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final reservationsOnDate = approvedReservations.where((res) {
+        try {
+          final resDate = res['date'] as DateTime;
+          final resDateOnly =
+              DateTime(resDate.year, resDate.month, resDate.day);
+          return resDateOnly.isAtSameMomentAs(dateOnly);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
 
-    return reservationsOnDate.map((res) => '${res['timeFrom']} - ${res['timeTo']}').toList();
+      return reservationsOnDate
+          .map((res) => '${res['timeFrom'] ?? ''} - ${res['timeTo'] ?? ''}')
+          .where((timeSlot) => timeSlot.trim() != ' - ')
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   // Check if selected time conflicts with existing bookings
-  bool _isTimeSlotAvailable(DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
-    final dateOnly = DateTime(date.year, date.month, date.day);
-    final reservationsOnDate = approvedReservations.where((res) {
-      final resDate = DateTime(res['date'].year, res['date'].month, res['date'].day);
-      return resDate.isAtSameMomentAs(dateOnly);
-    }).toList();
+  bool _isTimeSlotAvailable(
+      DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
+    try {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final reservationsOnDate = approvedReservations.where((res) {
+        try {
+          final resDate = res['date'] as DateTime;
+          final resDateOnly =
+              DateTime(resDate.year, resDate.month, resDate.day);
+          return resDateOnly.isAtSameMomentAs(dateOnly);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
 
-    final selectedFromMinutes = fromTime.hour * 60 + fromTime.minute;
-    final selectedToMinutes = toTime.hour * 60 + toTime.minute;
+      final selectedFromMinutes = fromTime.hour * 60 + fromTime.minute;
+      final selectedToMinutes = toTime.hour * 60 + toTime.minute;
 
-    for (final reservation in reservationsOnDate) {
-      final existingFrom = _parseTimeString(reservation['timeFrom']);
-      final existingTo = _parseTimeString(reservation['timeTo']);
-      
-      if (existingFrom != null && existingTo != null) {
-        final existingFromMinutes = existingFrom.hour * 60 + existingFrom.minute;
-        final existingToMinutes = existingTo.hour * 60 + existingTo.minute;
+      for (final reservation in reservationsOnDate) {
+        final existingFrom =
+            _parseTimeString(reservation['timeFrom']?.toString() ?? '');
+        final existingTo =
+            _parseTimeString(reservation['timeTo']?.toString() ?? '');
 
-        // Check for time overlap
-        bool hasOverlap = !(selectedToMinutes <= existingFromMinutes || 
-                           selectedFromMinutes >= existingToMinutes);
-        
-        if (hasOverlap) return false;
+        if (existingFrom != null && existingTo != null) {
+          final existingFromMinutes =
+              existingFrom.hour * 60 + existingFrom.minute;
+          final existingToMinutes = existingTo.hour * 60 + existingTo.minute;
+
+          // Check for time overlap
+          bool hasOverlap = !(selectedToMinutes <= existingFromMinutes ||
+              selectedFromMinutes >= existingToMinutes);
+
+          if (hasOverlap) return false;
+        }
       }
+      return true;
+    } catch (e) {
+      return true; // Default to allowing if there's an error
     }
-    return true;
   }
 
   // Parse time string to TimeOfDay
   TimeOfDay? _parseTimeString(String timeStr) {
     try {
+      if (timeStr.isEmpty) return null;
+
       final parts = timeStr.split(':');
       if (parts.length >= 2) {
         final hour = int.parse(parts[0]);
         final minutePart = parts[1].split(' ')[0]; // Remove AM/PM if present
         final minute = int.parse(minutePart);
-        
+
         // Handle AM/PM
         int finalHour = hour;
         if (timeStr.toLowerCase().contains('pm') && hour != 12) {
@@ -161,7 +218,7 @@ class _ReservationPageState extends State<ReservationPage> {
         } else if (timeStr.toLowerCase().contains('am') && hour == 12) {
           finalHour = 0;
         }
-        
+
         return TimeOfDay(hour: finalHour, minute: minute);
       }
     } catch (e) {
@@ -225,10 +282,11 @@ class _ReservationPageState extends State<ReservationPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoadingReservations 
+      body: _isLoadingReservations
           ? const Center(child: CircularProgressIndicator(color: Colors.black))
           : SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
+              padding:
+                  const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 20),
               child: Card(
                 elevation: 8,
                 shadowColor: Colors.black,
@@ -292,12 +350,14 @@ class _ReservationPageState extends State<ReservationPage> {
                         const SizedBox(height: 30),
 
                         // Personal Information Section
-                        _buildSectionHeader('Personal Information', Icons.person),
+                        _buildSectionHeader(
+                            'Personal Information', Icons.person),
                         const SizedBox(height: 20),
                         _buildModernTextField('Name', nameController,
                             icon: Icons.person_outline, isRequired: true),
                         const SizedBox(height: 20),
-                        _buildModernTextField('Contact Number', contactController,
+                        _buildModernTextField(
+                            'Contact Number', contactController,
                             icon: Icons.phone_outlined,
                             isRequired: true,
                             isPhone: true),
@@ -497,15 +557,13 @@ class _ReservationPageState extends State<ReservationPage> {
           return null;
         },
         onTap: () async {
+          final DateTime now = DateTime.now();
           final DateTime? picked = await showDatePicker(
             context: context,
-            initialDate: selectedDate ?? DateTime.now(),
-            firstDate: DateTime.now(),
-            lastDate: DateTime.now().add(const Duration(days: 365)),
-            selectableDayPredicate: (DateTime date) {
-              // Check if date is available for booking
-              return _isDateAvailable(date);
-            },
+            initialDate: selectedDate ?? now,
+            firstDate: now,
+            lastDate: now.add(const Duration(days: 365)),
+            // Remove selectableDayPredicate to prevent crashes
             builder: (context, child) {
               return Theme(
                 data: Theme.of(context).copyWith(
@@ -519,16 +577,84 @@ class _ReservationPageState extends State<ReservationPage> {
               );
             },
           );
-          
-          if (picked != null) {
-            setState(() {
-              selectedDate = picked;
-              dateController.text = "${picked.day}/${picked.month}/${picked.year}";
-              // Clear time when date changes
-              selectedFromTime = null;
-              selectedToTime = null;
-              timeController.clear();
-            });
+
+          if (picked != null && mounted) {
+            final messenger = ScaffoldMessenger.of(context);
+            
+            // Validate AFTER the user picks a date
+            String? errorMessage;
+
+            // Check wedding Sunday constraint
+            if (widget.eventType.toLowerCase() == 'wedding' &&
+                picked.weekday == DateTime.sunday) {
+              errorMessage =
+                  'Weddings cannot be booked on Sundays. Please select another date.';
+            }
+
+            // Check funeral Monday/Saturday constraint
+            if (widget.eventType.toLowerCase() == 'funeral' &&
+                (picked.weekday == DateTime.monday ||
+                    picked.weekday == DateTime.saturday)) {
+              errorMessage =
+                  'Funerals cannot be booked on Mondays or Saturdays. Please select another date.';
+            }
+
+            // Check booking limit (only if reservations are loaded)
+            if (errorMessage == null && !_isLoadingReservations) {
+              try {
+                final dateOnly =
+                    DateTime(picked.year, picked.month, picked.day);
+                int bookingsCount = 0;
+
+                for (var reservation in approvedReservations) {
+                  try {
+                    final resDate = reservation['date'] as DateTime;
+                    final resDateOnly =
+                        DateTime(resDate.year, resDate.month, resDate.day);
+                    if (resDateOnly.isAtSameMomentAs(dateOnly)) {
+                      bookingsCount++;
+                    }
+                  } catch (e) {
+                    continue;
+                  }
+                }
+
+                if (bookingsCount >= 2) {
+                  errorMessage =
+                      'This date is fully booked. Please select another date.';
+                }
+              } catch (e) {
+                // If validation fails, allow the date
+              }
+            }
+
+            // Show error or accept the date
+            if (errorMessage != null) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(errorMessage),
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height - 150,
+                    right: 20,
+                    left: 20,
+                  ),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            } else {
+              // Date is valid, accept it
+              setState(() {
+                selectedDate = picked;
+                dateController.text =
+                    "${picked.day}/${picked.month}/${picked.year}";
+                // Clear time when date changes
+                selectedFromTime = null;
+                selectedToTime = null;
+                timeController.clear();
+              });
+            }
           }
         },
         decoration: InputDecoration(
@@ -582,7 +708,8 @@ class _ReservationPageState extends State<ReservationPage> {
         },
         onTap: () async {
           if (selectedDate == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            final messenger = ScaffoldMessenger.of(context);
+            messenger.showSnackBar(
               SnackBar(
                 content: Text('Please select a date first'),
                 backgroundColor: Colors.orange,
@@ -600,11 +727,14 @@ class _ReservationPageState extends State<ReservationPage> {
           // Reload reservations to get the latest data
           await _loadApprovedReservations();
 
+          if (!mounted) return;
+          
           final scaffoldMessenger = ScaffoldMessenger.of(context);
 
           final fromPicked = await showTimePicker(
             context: context,
-            initialTime: selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
+            initialTime:
+                selectedFromTime ?? const TimeOfDay(hour: 7, minute: 0),
           );
           if (fromPicked == null) return;
 
@@ -626,28 +756,28 @@ class _ReservationPageState extends State<ReservationPage> {
             return;
           }
 
+          if (!mounted) return;
+          
           final toPicked = await showTimePicker(
             context: context,
             initialTime: selectedToTime ??
                 TimeOfDay(hour: fromPicked.hour + 1, minute: fromPicked.minute),
           );
-          if (toPicked == null) return;
+          if (toPicked == null || !mounted) return;
 
           if (toPicked.hour < 7 || toPicked.hour > 17) {
-            if (mounted) {
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text('Time must be between 7:00 AM and 5:00 PM'),
-                  backgroundColor: Colors.orange,
-                  behavior: SnackBarBehavior.floating,
-                  margin: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).size.height - 150,
-                    right: 20,
-                    left: 20,
-                  ),
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('Time must be between 7:00 AM and 5:00 PM'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height - 150,
+                  right: 20,
+                  left: 20,
                 ),
-              );
-            }
+              ),
+            );
             return;
           }
 
@@ -655,76 +785,71 @@ class _ReservationPageState extends State<ReservationPage> {
           final toMinutes = toPicked.hour * 60 + toPicked.minute;
 
           if (toMinutes <= fromMinutes) {
-            if (mounted) {
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text('End time must be after start time'),
-                  backgroundColor: Colors.orange,
-                  behavior: SnackBarBehavior.floating,
-                  margin: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).size.height - 150,
-                    right: 20,
-                    left: 20,
-                  ),
-                ),
-              );
-            }
-            return;
-          }
-
-          // Check for time slot conflicts
-          debugPrint('Checking time slot availability...');
-          if (!_isTimeSlotAvailable(selectedDate!, fromPicked, toPicked)) {
-            final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
-            String conflictMessage;
-            
-            if (conflictingSlots.isNotEmpty) {
-              conflictMessage = '${fromPicked.format(context)} - ${toPicked.format(context)} conflicts with existing bookings: ${conflictingSlots.join(', ')} are already reserved';
-            } else {
-              conflictMessage = 'Selected time slot ${fromPicked.format(context)} - ${toPicked.format(context)} is not available';
-            }
-            
-            if (mounted) {
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text(conflictMessage),
-                  backgroundColor: Colors.red,
-                  behavior: SnackBarBehavior.floating,
-                  margin: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).size.height - 150,
-                    right: 20,
-                    left: 20,
-                  ),
-                  duration: Duration(seconds: 5),
-                ),
-              );
-            }
-            return;
-          }
-
-          if (mounted) {
-            setState(() {
-              selectedFromTime = fromPicked;
-              selectedToTime = toPicked;
-              timeController.text =
-                  '${fromPicked.format(context)} - ${toPicked.format(context)}';
-            });
-            
-            // Show success message
             scaffoldMessenger.showSnackBar(
               SnackBar(
-                content: Text('Time slot selected successfully'),
-                backgroundColor: Colors.green,
+                content: Text('End time must be after start time'),
+                backgroundColor: Colors.orange,
                 behavior: SnackBarBehavior.floating,
                 margin: EdgeInsets.only(
                   bottom: MediaQuery.of(context).size.height - 150,
                   right: 20,
                   left: 20,
                 ),
-                duration: Duration(seconds: 2),
               ),
             );
+            return;
           }
+
+          // Check for time slot conflicts
+          if (!_isTimeSlotAvailable(selectedDate!, fromPicked, toPicked)) {
+            final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
+            String conflictMessage;
+
+            if (conflictingSlots.isNotEmpty) {
+              conflictMessage =
+                  '${fromPicked.format(context)} - ${toPicked.format(context)} conflicts with existing bookings: ${conflictingSlots.join(', ')} are already reserved';
+            } else {
+              conflictMessage =
+                  'Selected time slot ${fromPicked.format(context)} - ${toPicked.format(context)} is not available';
+            }
+
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text(conflictMessage),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height - 150,
+                  right: 20,
+                  left: 20,
+                ),
+                duration: Duration(seconds: 5),
+              ),
+            );
+            return;
+          }
+
+          setState(() {
+            selectedFromTime = fromPicked;
+            selectedToTime = toPicked;
+            timeController.text =
+                '${fromPicked.format(context)} - ${toPicked.format(context)}';
+          });
+
+          // Show success message
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Time slot selected successfully'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.only(
+                bottom: MediaQuery.of(context).size.height - 150,
+                right: 20,
+                left: 20,
+              ),
+              duration: Duration(seconds: 2),
+            ),
+          );
         },
         decoration: InputDecoration(
           labelText: 'Time (From - To)',
@@ -766,47 +891,48 @@ class _ReservationPageState extends State<ReservationPage> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: requirements.entries
-            .expand((entry) => [
-                  Text(
-                    entry.key,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.red[600],
-                      fontSize: 16,
-                    ),
+        children: [
+                    // Fix: Remove unnecessary toList() from spread operator
+          ...requirements.entries.expand((entry) => [
+                Text(
+                  entry.key,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red[600],
+                    fontSize: 16,
                   ),
-                  const SizedBox(height: 10),
-                  ...entry.value.map((req) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
+                ),
+                const SizedBox(height: 10),
+                ...entry.value.map((req) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              req,
+                              style: const TextStyle(
                                 color: Colors.redAccent,
-                                shape: BoxShape.circle,
+                                fontSize: 14,
+                                height: 1.4,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                req,
-                                style: const TextStyle(
-                                  color: Colors.redAccent,
-                                  fontSize: 14,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-                ])
-            .toList(),
+                          ),
+                        ],
+                      ),
+                    )),
+              ]),
+        ],
       ),
     );
   }
@@ -946,7 +1072,7 @@ class _ReservationPageState extends State<ReservationPage> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -1033,11 +1159,11 @@ class _ReservationPageState extends State<ReservationPage> {
         uploadedAt: DateTime.now(),
       );
 
-      setState(() {
-        uploadedDocuments.add(docImage);
-      });
-
       if (mounted) {
+        setState(() {
+          uploadedDocuments.add(docImage);
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Document uploaded successfully'),
@@ -1071,10 +1197,14 @@ class _ReservationPageState extends State<ReservationPage> {
 
   void _saveReservation() async {
     if (_formKey.currentState!.validate()) {
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final user = FirebaseAuth.instance.currentUser;
+      
       // Check if documents are required and uploaded
       if (widget.eventType.toLowerCase() != 'house blessing' &&
           uploadedDocuments.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Please upload at least one required document'),
             backgroundColor: Colors.redAccent,
@@ -1085,7 +1215,7 @@ class _ReservationPageState extends State<ReservationPage> {
 
       // Final validation before saving
       if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Selected date is no longer available'),
             backgroundColor: Colors.red,
@@ -1100,14 +1230,18 @@ class _ReservationPageState extends State<ReservationPage> {
         return;
       }
 
-      if (selectedDate != null && selectedFromTime != null && selectedToTime != null &&
-          !_isTimeSlotAvailable(selectedDate!, selectedFromTime!, selectedToTime!)) {
+      if (selectedDate != null &&
+          selectedFromTime != null &&
+          selectedToTime != null &&
+          !_isTimeSlotAvailable(
+              selectedDate!, selectedFromTime!, selectedToTime!)) {
         final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
-        String conflictMessage = 'Selected time conflicts with existing bookings: ';
+        String conflictMessage =
+            'Selected time conflicts with existing bookings: ';
         conflictMessage += conflictingSlots.join(', ');
         conflictMessage += ' are already reserved';
-        
-        ScaffoldMessenger.of(context).showSnackBar(
+
+        messenger.showSnackBar(
           SnackBar(
             content: Text(conflictMessage),
             backgroundColor: Colors.red,
@@ -1124,9 +1258,6 @@ class _ReservationPageState extends State<ReservationPage> {
       }
 
       setState(() => _isSaving = true);
-
-      final navigator = Navigator.of(context);
-      final user = FirebaseAuth.instance.currentUser;
 
       final reservation = ReservationData(
         reservationId: '',
@@ -1170,7 +1301,7 @@ class _ReservationPageState extends State<ReservationPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text('Failed to save reservation: $e'),
               backgroundColor: Colors.red,
@@ -1191,4 +1322,5 @@ class _ReservationPageState extends State<ReservationPage> {
     commentsController.dispose();
     timeController.dispose();
     super.dispose();
-  }}
+  }
+}
