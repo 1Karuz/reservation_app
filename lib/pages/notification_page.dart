@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../services/app_logger.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -29,17 +30,31 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // Mark all notifications as read when leaving the page
   Future<void> _markAllAsRead() async {
-    if (userId == null) return;
+  if (userId == null) {
+    AppLogger.warning('Cannot mark notifications as read - no user ID', 'NOTIFICATIONS');
+    return;
+  }
+  
+  AppLogger.debug('Marking all notifications as read for user: $userId', 'NOTIFICATIONS');
+  
+  try {
     final query = await FirebaseFirestore.instance
         .collection("notifications")
         .where("userId", isEqualTo: userId)
         .where("read", isEqualTo: false)
         .get();
 
+    AppLogger.debug('Found ${query.docs.length} unread notifications to mark as read', 'NOTIFICATIONS');
+
     for (var doc in query.docs) {
       await doc.reference.update({"read": true});
     }
+    
+    AppLogger.debug('Successfully marked all notifications as read', 'NOTIFICATIONS');
+  } catch (e) {
+    AppLogger.error('Failed to mark notifications as read', e, StackTrace.current, 'NOTIFICATIONS');
   }
+}
 
   @override
   void dispose() {
@@ -73,7 +88,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
 
     // Debug print to see the actual message format
-    print('Parsing message: $message');
+    debugPrint('Parsing message: $message');
 
     // Try to extract reason - handle both formats
     final reasonMatch = RegExp(r'Reason:\s*(.+?)(?:\s+Additional details:|$)', 
@@ -112,7 +127,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       }
     }
 
-    print('Parsed result: $result');
+    debugPrint('Parsed result: $result');
     return result;
   }
 

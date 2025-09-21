@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import '../models/user_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/app_logger.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -211,58 +212,77 @@ Widget build(BuildContext context) {
 }
 
 
-  void _handleAuthentication() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        if (isSignUp) {
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          );
+ void _handleAuthentication() async {
+  if (_formKey.currentState!.validate()) {
+    final email = emailController.text.trim();
+    AppLogger.auth('Attempting ${isSignUp ? "sign up" : "sign in"} for email: $email');
+    
+    try {
+      if (isSignUp) {
+        AppLogger.auth('Creating new user account');
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: passwordController.text.trim(),
+        );
 
-          if (!mounted) return;
+        if (!mounted) return;
+        
+        AppLogger.auth('Account created successfully for: $email');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Account created! Please log in.")),
+        );
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Account created! Please log in.")),
-          );
+        setState(() {
+          isSignUp = false;
+        });
+      } else {
+        AppLogger.auth('Signing in user');
+        UserCredential userCredential =
+            await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: passwordController.text.trim(),
+        );
 
-          setState(() {
-            isSignUp = false;
-          });
-        } else {
-          UserCredential userCredential =
-              await FirebaseAuth.instance.signInWithEmailAndPassword(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          );
-
-          if (!mounted) return;
-
-          UserSession.setemail(userCredential.user?.email ?? '');
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
-      } on FirebaseAuthException catch (e) {
         if (!mounted) return;
 
-        String message = '';
-        if (e.code == 'user-not-found') {
-          message = 'No user found for that email.';
-        } else if (e.code == 'wrong-password') {
-          message = 'Wrong password provided.';
-        } else if (e.code == 'email-already-in-use') {
-          message = 'That email is already registered.';
-        } else {
-          message = e.message ?? 'Authentication failed';
-        }
+        AppLogger.auth('Sign in successful for: $email');
+        UserSession.setemail(userCredential.user?.email ?? '');
 
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message = '';
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+        AppLogger.auth('Sign in failed - user not found: $email');
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided.';
+        AppLogger.auth('Sign in failed - wrong password for: $email');
+      } else if (e.code == 'email-already-in-use') {
+        message = 'That email is already registered.';
+        AppLogger.auth('Sign up failed - email already in use: $email');
+      } else {
+        message = e.message ?? 'Authentication failed';
+        AppLogger.auth('Authentication failed with code: ${e.code}', e);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      AppLogger.error('Unexpected authentication error', e, StackTrace.current, 'AUTH');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
+          const SnackBar(content: Text('An unexpected error occurred. Please try again.')),
         );
       }
     }
   }
+}
+
 }

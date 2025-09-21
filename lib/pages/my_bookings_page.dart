@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/app_logger.dart'; // ADD THIS IMPORT
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -12,6 +13,12 @@ class MyBookingsPage extends StatefulWidget {
 }
 
 class _MyBookingsPageState extends State<MyBookingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.debug('My Bookings page initialized', 'MY_BOOKINGS'); // ADD THIS
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,6 +77,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
+                    AppLogger.error('Error loading user reservations', snapshot.error, StackTrace.current, 'MY_BOOKINGS'); // ADD THIS
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -81,7 +89,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Error: ${snapshot.error}',
+                            'Error loading reservations',
                             style: TextStyle(
                               color: Colors.red[600],
                               fontSize: 16,
@@ -93,6 +101,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   }
 
                   if (snapshot.connectionState == ConnectionState.waiting) {
+                    AppLogger.debug('Loading user reservations', 'MY_BOOKINGS'); // ADD THIS
                     return const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -114,6 +123,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    AppLogger.debug('No reservations found for user', 'MY_BOOKINGS'); // ADD THIS
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -163,6 +173,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
                     );
                   }).toList();
+
+                  AppLogger.debug('Loaded ${reservations.length} reservations for user', 'MY_BOOKINGS'); // ADD THIS
 
                   return ListView.builder(
                     itemCount: reservations.length,
@@ -426,6 +438,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   void _deleteReservation(ReservationData reservation) async {
+    AppLogger.debug('User initiated reservation deletion: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -448,11 +462,15 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 final navigator = Navigator.of(context);
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+                AppLogger.info('Deleting reservation: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
+
                 try {
                   await FirebaseFirestore.instance
                       .collection('reservations')
                       .doc(reservation.reservationId)
                       .delete();
+
+                  AppLogger.info('Successfully deleted reservation: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
 
                   if (mounted) {
                     navigator.pop();
@@ -465,11 +483,12 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     );
                   }
                 } catch (e) {
+                  AppLogger.error('Failed to delete reservation: ${reservation.reservationId}', e, StackTrace.current, 'MY_BOOKINGS'); // ADD THIS
                   if (mounted) {
                     navigator.pop();
                     scaffoldMessenger.showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to delete: $e'),
+                      const SnackBar(
+                        content: Text('Failed to delete reservation. Please try again.'),
                         backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
                       ),

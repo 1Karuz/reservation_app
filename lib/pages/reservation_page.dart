@@ -9,6 +9,7 @@ import 'package:image/image.dart' as img;
 import 'dart:convert';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/app_logger.dart';
 
 class ReservationPage extends StatefulWidget {
   final String eventType;
@@ -80,6 +81,7 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
   // Check if a date is available for booking
+ // Check if a date is available for booking
   bool _isDateAvailable(DateTime date) {
     try {
       // Basic validation
@@ -127,8 +129,11 @@ class _ReservationPageState extends State<ReservationPage> {
       // All other constraints passed
       return true;
     } catch (e) {
-      // If there's any error in validation, default to allowing the date
-      debugPrint('Error in date validation: $e');
+      // REPLACE THIS LINE:
+      // debugPrint('Error in date validation: $e');
+      
+      // WITH THIS LINE:
+      AppLogger.error('Error in date validation', e, StackTrace.current, 'RESERVATION');
       return true;
     }
   }
@@ -580,7 +585,7 @@ class _ReservationPageState extends State<ReservationPage> {
 
           if (picked != null && mounted) {
             final messenger = ScaffoldMessenger.of(context);
-            
+
             // Validate AFTER the user picks a date
             String? errorMessage;
 
@@ -728,7 +733,7 @@ class _ReservationPageState extends State<ReservationPage> {
           await _loadApprovedReservations();
 
           if (!mounted) return;
-          
+
           final scaffoldMessenger = ScaffoldMessenger.of(context);
 
           final fromPicked = await showTimePicker(
@@ -757,7 +762,7 @@ class _ReservationPageState extends State<ReservationPage> {
           }
 
           if (!mounted) return;
-          
+
           final toPicked = await showTimePicker(
             context: context,
             initialTime: selectedToTime ??
@@ -892,7 +897,7 @@ class _ReservationPageState extends State<ReservationPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-                    // Fix: Remove unnecessary toList() from spread operator
+          // Fix: Remove unnecessary toList() from spread operator
           ...requirements.entries.expand((entry) => [
                 Text(
                   entry.key,
@@ -1119,28 +1124,44 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
   Future<void> _processAndAddImage(XFile image, ImageSource source) async {
+    AppLogger.imageProcessing('Starting image processing for: ${image.name}');
+
     try {
       // Read image bytes
       final bytes = await File(image.path).readAsBytes();
+      AppLogger.imageProcessing('Read ${bytes.length} bytes from image file');
 
       // Decode and compress image
       img.Image? originalImage = img.decodeImage(bytes);
-      if (originalImage == null) return;
+      if (originalImage == null) {
+        AppLogger.error(
+            'Failed to decode image: ${image.name}', null, null, 'IMAGE');
+        return;
+      }
+
+      AppLogger.imageProcessing(
+          'Original image size: ${originalImage.width}x${originalImage.height}');
 
       // Resize if too large (max 800px width)
       if (originalImage.width > 800) {
         originalImage = img.copyResize(originalImage, width: 800);
+        AppLogger.imageProcessing(
+            'Resized image to: ${originalImage.width}x${originalImage.height}');
       }
 
       // Encode as JPEG with compression
       final compressedBytes = img.encodeJpg(originalImage, quality: 70);
+      AppLogger.imageProcessing(
+          'Compressed image to ${compressedBytes.length} bytes');
 
       // Convert to base64
       final base64String = base64Encode(compressedBytes);
 
       // Check size (Firestore has 1MB limit per document)
       if (base64String.length > 500000) {
-        // ~500KB limit for safety
+        AppLogger.warning(
+            'Image too large after compression: ${base64String.length} characters',
+            'IMAGE');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1164,6 +1185,8 @@ class _ReservationPageState extends State<ReservationPage> {
           uploadedDocuments.add(docImage);
         });
 
+        AppLogger.imageProcessing(
+            'Successfully added document: ${docImage.name}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Document uploaded successfully'),
@@ -1172,10 +1195,13 @@ class _ReservationPageState extends State<ReservationPage> {
         );
       }
     } catch (e) {
+      AppLogger.error('Error processing image: ${image.name}', e,
+          StackTrace.current, 'IMAGE');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error processing image: $e'),
+            content:
+                Text('Error processing image: ${e.toString().split(':').last}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1200,10 +1226,16 @@ class _ReservationPageState extends State<ReservationPage> {
       final messenger = ScaffoldMessenger.of(context);
       final navigator = Navigator.of(context);
       final user = FirebaseAuth.instance.currentUser;
-      
+
+      AppLogger.reservation(
+          'Starting reservation save process for ${widget.eventType}');
+
       // Check if documents are required and uploaded
       if (widget.eventType.toLowerCase() != 'house blessing' &&
           uploadedDocuments.isEmpty) {
+        AppLogger.warning(
+            'No documents uploaded for ${widget.eventType} reservation',
+            'RESERVATION');
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Please upload at least one required document'),
@@ -1215,6 +1247,8 @@ class _ReservationPageState extends State<ReservationPage> {
 
       // Final validation before saving
       if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
+        AppLogger.warning('Selected date is no longer available: $selectedDate',
+            'RESERVATION');
         messenger.showSnackBar(
           SnackBar(
             content: Text('Selected date is no longer available'),
@@ -1225,33 +1259,6 @@ class _ReservationPageState extends State<ReservationPage> {
               right: 20,
               left: 20,
             ),
-          ),
-        );
-        return;
-      }
-
-      if (selectedDate != null &&
-          selectedFromTime != null &&
-          selectedToTime != null &&
-          !_isTimeSlotAvailable(
-              selectedDate!, selectedFromTime!, selectedToTime!)) {
-        final conflictingSlots = _getConflictingTimeSlots(selectedDate!);
-        String conflictMessage =
-            'Selected time conflicts with existing bookings: ';
-        conflictMessage += conflictingSlots.join(', ');
-        conflictMessage += ' are already reserved';
-
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(conflictMessage),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              right: 20,
-              left: 20,
-            ),
-            duration: Duration(seconds: 4),
           ),
         );
         return;
@@ -1276,6 +1283,9 @@ class _ReservationPageState extends State<ReservationPage> {
         documents: uploadedDocuments,
       );
 
+      AppLogger.reservation(
+          'Reservation data prepared - Event: ${widget.eventType}, Date: $selectedDate, User: ${user.uid}');
+
       try {
         final docRef = await FirebaseFirestore.instance
             .collection('reservations')
@@ -1283,6 +1293,9 @@ class _ReservationPageState extends State<ReservationPage> {
 
         reservation.reservationId = docRef.id;
         UserSession.addReservation(reservation);
+
+        AppLogger.reservation(
+            'Successfully saved reservation with ID: ${docRef.id}');
 
         if (mounted) {
           navigator.push(
@@ -1300,10 +1313,12 @@ class _ReservationPageState extends State<ReservationPage> {
           );
         }
       } catch (e) {
+        AppLogger.error('Failed to save reservation to Firestore', e,
+            StackTrace.current, 'RESERVATION');
         if (mounted) {
           messenger.showSnackBar(
             SnackBar(
-              content: Text('Failed to save reservation: $e'),
+              content: Text('Failed to save reservation. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );

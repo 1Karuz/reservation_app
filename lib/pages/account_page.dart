@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_session.dart';
 import 'auth_page.dart';
+import '../services/app_logger.dart';  // ADD THIS IMPORT
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
@@ -211,6 +212,8 @@ class AccountPage extends StatelessWidget {
   }
 
   void _showAboutDialog(BuildContext context) {
+    AppLogger.ui('User opened About dialog'); // ADD THIS
+    
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -275,6 +278,8 @@ class AccountPage extends StatelessWidget {
   }
 
   void _exitApp(BuildContext context) {
+    AppLogger.ui('User initiated app exit'); // ADD THIS
+    
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -293,7 +298,10 @@ class AccountPage extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => SystemNavigator.pop(),
+              onPressed: () {
+                AppLogger.info('User confirmed app exit'); // ADD THIS
+                SystemNavigator.pop();
+              },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
@@ -310,6 +318,8 @@ class AccountPage extends StatelessWidget {
   }
 
   void _logout(BuildContext context) {
+    AppLogger.ui('User initiated logout process'); // ADD THIS
+    
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -330,13 +340,16 @@ class AccountPage extends StatelessWidget {
             TextButton(
               onPressed: () async {
                 final navigator = Navigator.of(dialogContext);
+                AppLogger.auth('User initiated logout'); // ADD THIS
 
                 try {
                   // Clear user session first
                   UserSession.clearSession();
+                  AppLogger.debug('User session cleared'); // ADD THIS
 
                   // Sign out from Firebase
                   await FirebaseAuth.instance.signOut();
+                  AppLogger.auth('Firebase sign out successful'); // ADD THIS
 
                   // Navigate to auth page
                   navigator.pop(); // Close dialog
@@ -346,9 +359,10 @@ class AccountPage extends StatelessWidget {
                     (route) => false,
                   );
                 } catch (e) {
+                  AppLogger.error('Logout failed', e, StackTrace.current, 'AUTH'); // ADD THIS
                   navigator.pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
+                    const SnackBar(content: Text('Logout failed. Please try again.')), // UPDATED MESSAGE
                   );
                 }
               },

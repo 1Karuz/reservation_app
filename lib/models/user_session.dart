@@ -1,6 +1,7 @@
 // models/user_session.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/app_logger.dart'; // ADD THIS IMPORT
 
 class UserSession {
   static String _email = '';
@@ -13,23 +14,32 @@ class UserSession {
   static bool get isCleared => _isCleared;
 
   static void setemail(String email) {
+    AppLogger.debug('Setting user email in session: $email', 'SESSION'); // ADD THIS
     _email = email;
     _isCleared = false;
   }
 
   static void addReservation(ReservationData reservation) {
     if (!_isCleared) {
+      AppLogger.debug('Adding reservation to session: ${reservation.reservationId}', 'SESSION'); // ADD THIS
       _reservations.add(reservation);
+    } else {
+      AppLogger.warning('Attempted to add reservation to cleared session', 'SESSION'); // ADD THIS
     }
   }
 
   static void removeReservation(int index) {
     if (!_isCleared && index >= 0 && index < _reservations.length) {
+      final reservationId = _reservations[index].reservationId;
+      AppLogger.debug('Removing reservation from session at index $index: $reservationId', 'SESSION'); // ADD THIS
       _reservations.removeAt(index);
+    } else {
+      AppLogger.warning('Invalid attempt to remove reservation at index $index', 'SESSION'); // ADD THIS
     }
   }
 
   static void clearSession() {
+    AppLogger.info('Clearing user session', 'SESSION'); // ADD THIS
     _isCleared = true;
     _email = '';
     _reservations.clear();
@@ -37,7 +47,9 @@ class UserSession {
 
   // Method to check if session is valid
   static bool isValidSession() {
-    return !_isCleared && _email.isNotEmpty;
+    final isValid = !_isCleared && _email.isNotEmpty;
+    AppLogger.debug('Session validity check: $isValid (cleared: $_isCleared, email: ${_email.isNotEmpty ? "present" : "empty"})', 'SESSION'); // ADD THIS
+    return isValid;
   }
 }
 

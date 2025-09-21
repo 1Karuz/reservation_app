@@ -11,6 +11,7 @@ import 'my_bookings_page.dart';
 import 'account_page.dart';
 import '/pages/notification_page.dart';
 import 'dart:async';
+import '../services/app_logger.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _statsController;
   late Animation<double> _calendarAnimation;
   late Animation<double> _statsAnimation;
-  
+
   // Bottom navigation
   int _currentIndex = 0;
   late PageController _pageController;
@@ -120,7 +121,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _loadReservations() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      AppLogger.warning(
+          'User ID is null, cannot load reservations', 'HOME_SCREEN');
+      return;
+    }
+
+    AppLogger.debug('Loading reservations for user: $userId', 'HOME_SCREEN');
 
     // Cancel existing subscription
     _reservationsSubscription?.cancel();
@@ -132,9 +139,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         .snapshots()
         .listen(
       (snapshot) {
-        if (_isDisposed) return; // Check if widget is disposed
+        if (_isDisposed) {
+          AppLogger.debug(
+              'Widget disposed, ignoring reservation update', 'HOME_SCREEN');
+          return;
+        }
+
+        AppLogger.debug(
+            'Loaded ${snapshot.docs.length} reservations', 'HOME_SCREEN');
 
         Map<DateTime, List<dynamic>> events = {};
+        int processedCount = 0;
 
         for (var doc in snapshot.docs) {
           final data = doc.data();
@@ -151,8 +166,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               'status': data['status'] ?? 'pending',
               'isOwn': data['userId'] == userId,
             });
+            processedCount++;
+          } else {
+            AppLogger.warning('Failed to parse date for reservation: ${doc.id}',
+                'HOME_SCREEN');
           }
         }
+
+        AppLogger.debug('Successfully processed $processedCount reservations',
+            'HOME_SCREEN');
 
         if (mounted && !_isDisposed) {
           setState(() {
@@ -161,8 +183,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       },
       onError: (error) {
+        AppLogger.error('Error loading reservations', error, StackTrace.current,
+            'HOME_SCREEN');
         if (mounted && !_isDisposed) {
-          debugPrint('Error loading reservations: $error');
+          // Show user-friendly error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Unable to load calendar events. Please try again later.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       },
     );

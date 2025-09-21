@@ -1,6 +1,7 @@
 // pages/success_page.dart
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import '../services/app_logger.dart'; // ADD THIS IMPORT
 
 class SuccessPage extends StatelessWidget {
 final String eventType;
@@ -22,59 +23,10 @@ final String timeTo;
     required this.timeTo,
   });
 
-  String _getServiceTagline(String eventType) {
-    switch (eventType.toLowerCase()) {
-      case 'wedding':
-        return "Your wedding ceremony is confirmed. The customary church stipend for the sacrament of Matrimony is approximately ₱5,000 - ₱12,000. Please coordinate with the parish office to finalize this offering and any additional arrangements.";
-      case 'baptism':
-        return "Your child's Baptism is reserved. A customary donation of around ₱400 - ₱2,500 for the church's ministry is appreciated. Kindly be ready to offer this stipend at the parish office on the day of the baptism.";
-      case 'funeral':
-        return "We are sorry for your loss. The funeral mass has been arranged. A stipend of approximately ₱1,000 - ₱5,000 for the celebrant and church is customary. Please settle this at the parish office at your convenience.";
-      case 'house blessing':
-        return "Your house blessing is scheduled. The customary stipend for the priest's ministry is typically ₱1,000 - ₱3,000. Please prepare this offering for him after the blessing ceremony.";
-      case 'confession':
-        return "Your time for the Sacrament of Reconciliation is reserved. Please note that confession is a gift of grace and has no required fee. A voluntary donation to support the church's ministry is always welcome but entirely optional.";
-      default:
-        return "Your reservation has been confirmed. Please contact the parish office for any additional information regarding customary donations or arrangements.";
-    }
-  }
-
-  Color _getServiceColor(String eventType) {
-    switch (eventType.toLowerCase()) {
-      case 'wedding':
-        return const Color(0xFFE91E63); // Pink for wedding
-      case 'baptism':
-        return const Color(0xFF2196F3); // Blue for baptism
-      case 'funeral':
-        return const Color(0xFF757575); // Grey for funeral
-      case 'house blessing':
-        return const Color(0xFF4CAF50); // Green for house blessing
-      case 'confession':
-        return const Color(0xFF9C27B0); // Purple for confession
-      default:
-        return const Color(0xFF607D8B); // Blue grey default
-    }
-  }
-
-  IconData _getServiceIcon(String eventType) {
-    switch (eventType.toLowerCase()) {
-      case 'wedding':
-        return Icons.favorite;
-      case 'baptism':
-        return Icons.water_drop;
-      case 'funeral':
-        return Icons.local_florist;
-      case 'house blessing':
-        return Icons.home;
-      case 'confession':
-        return Icons.auto_stories;
-      default:
-        return Icons.event;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    AppLogger.info('Success page displayed for event: $eventType'); // ADD THIS
+    
     final serviceColor = _getServiceColor(eventType);
     final serviceIcon = _getServiceIcon(eventType);
     final tagline = _getServiceTagline(eventType);
@@ -355,6 +307,7 @@ final String timeTo;
                   ),
                   child: ElevatedButton(
                     onPressed: () {
+                      AppLogger.ui('User navigating home from success page'); // ADD THIS
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -393,6 +346,57 @@ final String timeTo;
         ),
       ),
     );
+  }
+
+  String _getServiceTagline(String eventType) {
+    switch (eventType.toLowerCase()) {
+      case 'wedding':
+        return "Your wedding ceremony is confirmed. The customary church stipend for the sacrament of Matrimony is approximately ₱5,000 - ₱12,000. Please coordinate with the parish office to finalize this offering and any additional arrangements.";
+      case 'baptism':
+        return "Your child's Baptism is reserved. A customary donation of around ₱400 - ₱2,500 for the church's ministry is appreciated. Kindly be ready to offer this stipend at the parish office on the day of the baptism.";
+      case 'funeral':
+        return "We are sorry for your loss. The funeral mass has been arranged. A stipend of approximately ₱1,000 - ₱5,000 for the celebrant and church is customary. Please settle this at the parish office at your convenience.";
+      case 'house blessing':
+        return "Your house blessing is scheduled. The customary stipend for the priest's ministry is typically ₱1,000 - ₱3,000. Please prepare this offering for him after the blessing ceremony.";
+      case 'confession':
+        return "Your time for the Sacrament of Reconciliation is reserved. Please note that confession is a gift of grace and has no required fee. A voluntary donation to support the church's ministry is always welcome but entirely optional.";
+      default:
+        return "Your reservation has been confirmed. Please contact the parish office for any additional information regarding customary donations or arrangements.";
+    }
+  }
+
+  Color _getServiceColor(String eventType) {
+    switch (eventType.toLowerCase()) {
+      case 'wedding':
+        return const Color(0xFFE91E63); // Pink for wedding
+      case 'baptism':
+        return const Color(0xFF2196F3); // Blue for baptism
+      case 'funeral':
+        return const Color(0xFF757575); // Grey for funeral
+      case 'house blessing':
+        return const Color(0xFF4CAF50); // Green for house blessing
+      case 'confession':
+        return const Color(0xFF9C27B0); // Purple for confession
+      default:
+        return const Color(0xFF607D8B); // Blue grey default
+    }
+  }
+
+  IconData _getServiceIcon(String eventType) {
+    switch (eventType.toLowerCase()) {
+      case 'wedding':
+        return Icons.favorite;
+      case 'baptism':
+        return Icons.water_drop;
+      case 'funeral':
+        return Icons.local_florist;
+      case 'house blessing':
+        return Icons.home;
+      case 'confession':
+        return Icons.auto_stories;
+      default:
+        return Icons.event;
+    }
   }
 
   Widget _buildModernInfoRow(String label, String value, IconData icon) {

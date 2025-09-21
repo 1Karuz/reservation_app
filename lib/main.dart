@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/user_session.dart';
 import 'dart:async';
+import 'services/app_logger.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,10 +25,12 @@ class EventReservationApp extends StatelessWidget {
       title: 'Event Reservation System',
       theme: ThemeData(
         textSelectionTheme: TextSelectionThemeData(
-          cursorColor: const Color.fromARGB(255, 0, 0, 0), // Your desired cursor color
+          cursorColor:
+              const Color.fromARGB(255, 0, 0, 0), // Your desired cursor color
           selectionColor:
               Colors.blue.withOpacity(0.3), // Text selection highlight color
-          selectionHandleColor: const Color.fromARGB(255, 45, 45, 45), // Selection handle color
+          selectionHandleColor:
+              const Color.fromARGB(255, 45, 45, 45), // Selection handle color
         ),
         primarySwatch: Colors.grey,
         scaffoldBackgroundColor: Colors.white,
@@ -82,9 +85,12 @@ class _AuthStateManagerState extends State<AuthStateManager> {
   }
 
   Future<void> _initializeApp() async {
+    AppLogger.info('Initializing application');
+
     try {
       // Check if first time
       _isFirstTime = await _checkFirstTime();
+      AppLogger.info('First time user: $_isFirstTime');
 
       // If first time, don't set up auth listener yet
       if (_isFirstTime) {
@@ -96,10 +102,15 @@ class _AuthStateManagerState extends State<AuthStateManager> {
         return;
       }
 
+      AppLogger.debug('Setting up auth state listener');
       // Set up auth state listener
       _authSubscription = FirebaseAuth.instance.authStateChanges().listen(
         (User? user) {
           if (mounted) {
+            AppLogger.auth(user != null
+                ? 'User authenticated: ${user.email}'
+                : 'User signed out');
+
             setState(() {
               _currentUser = user;
               _isLoading = false;
@@ -108,12 +119,16 @@ class _AuthStateManagerState extends State<AuthStateManager> {
             // Update user session
             if (user != null) {
               UserSession.setemail(user.email ?? '');
+              AppLogger.debug('User session updated for: ${user.email}');
             } else {
               UserSession.clearSession();
+              AppLogger.debug('User session cleared');
             }
           }
         },
         onError: (error) {
+          AppLogger.error(
+              'Auth state change error', error, StackTrace.current, 'AUTH');
           if (mounted) {
             setState(() {
               _currentUser = null;
@@ -124,6 +139,8 @@ class _AuthStateManagerState extends State<AuthStateManager> {
         },
       );
     } catch (e) {
+      AppLogger.error(
+          'Application initialization failed', e, StackTrace.current, 'MAIN');
       if (mounted) {
         setState(() {
           _currentUser = null;
