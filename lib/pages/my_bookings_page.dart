@@ -1,9 +1,8 @@
-// pages/my_bookings_page.dart
+// pages/my_bookings_page.dart (Updated with payment status)
 import 'package:flutter/material.dart';
-import '../models/user_session.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/app_logger.dart'; // ADD THIS IMPORT
+import '../services/app_logger.dart';
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -16,7 +15,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   @override
   void initState() {
     super.initState();
-    AppLogger.debug('My Bookings page initialized', 'MY_BOOKINGS'); // ADD THIS
+    AppLogger.debug('My Bookings page initialized', 'MY_BOOKINGS');
   }
 
   @override
@@ -77,7 +76,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
-                    AppLogger.error('Error loading user reservations', snapshot.error, StackTrace.current, 'MY_BOOKINGS'); // ADD THIS
+                    AppLogger.error('Error loading user reservations', snapshot.error, StackTrace.current, 'MY_BOOKINGS');
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -101,7 +100,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   }
 
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    AppLogger.debug('Loading user reservations', 'MY_BOOKINGS'); // ADD THIS
+                    AppLogger.debug('Loading user reservations', 'MY_BOOKINGS');
                     return const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +122,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    AppLogger.debug('No reservations found for user', 'MY_BOOKINGS'); // ADD THIS
+                    AppLogger.debug('No reservations found for user', 'MY_BOOKINGS');
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -171,10 +170,16 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       status: data['status'] ?? 'pending',
                       createdAt: (data['createdAt'] as Timestamp).toDate(),
                       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+                      // Add payment fields
+                      paymentStatus: data['paymentStatus'],
+                      paymentAmount: data['paymentAmount']?.toDouble(),
+                      paymentSubmittedAt: data['paymentSubmittedAt'] != null 
+                          ? (data['paymentSubmittedAt'] as Timestamp).toDate()
+                          : null,
                     );
                   }).toList();
 
-                  AppLogger.debug('Loaded ${reservations.length} reservations for user', 'MY_BOOKINGS'); // ADD THIS
+                  AppLogger.debug('Loaded ${reservations.length} reservations for user', 'MY_BOOKINGS');
 
                   return ListView.builder(
                     itemCount: reservations.length,
@@ -238,33 +243,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                     ),
                                   ),
                                   // Status Badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(reservation.status),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _getStatusIcon(reservation.status),
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          reservation.status.toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  _buildStatusBadge(reservation.status),
                                 ],
                               ),
 
@@ -284,6 +263,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                 '${reservation.timeFrom} - ${reservation.timeTo}',
                               ),
                               _buildDetailRow(Icons.phone_outlined, 'Contact', reservation.contact),
+
+                              // Payment Status (if exists)
+                              if (reservation.paymentStatus != null)
+                                _buildPaymentStatusSection(reservation),
 
                               // Comments (if any)
                               if (reservation.comments.isNotEmpty) ...[
@@ -327,6 +310,140 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getStatusIcon(status),
+            color: Colors.white,
+            size: 14,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            status.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentStatusSection(ReservationData reservation) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _getPaymentStatusIcon(reservation.paymentStatus),
+                color: _getPaymentStatusColor(reservation.paymentStatus),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Payment Status',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _getPaymentStatusColor(reservation.paymentStatus),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getPaymentStatusText(reservation.paymentStatus),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+            ),
+          ),
+          if (reservation.paymentAmount != null && reservation.paymentAmount! > 0)
+            Text(
+              'Amount: ₱${reservation.paymentAmount!.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+          if (reservation.paymentSubmittedAt != null)
+            Text(
+              'Submitted: ${_formatDate(reservation.paymentSubmittedAt!)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getPaymentStatusText(String? status) {
+    switch (status) {
+      case 'paid_online':
+        return 'Payment submitted online - awaiting admin verification';
+      case 'pay_at_church':
+        return 'Payment will be made at the church';
+      case 'verified':
+        return 'Payment verified by admin';
+      case 'payment_pending':
+        return 'Payment verification pending';
+      default:
+        return 'No payment information';
+    }
+  }
+
+  Color _getPaymentStatusColor(String? status) {
+    switch (status) {
+      case 'paid_online':
+      case 'payment_pending':
+        return Colors.orange;
+      case 'verified':
+        return Colors.green;
+      case 'pay_at_church':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getPaymentStatusIcon(String? status) {
+    switch (status) {
+      case 'paid_online':
+      case 'payment_pending':
+        return Icons.pending_actions;
+      case 'verified':
+        return Icons.verified;
+      case 'pay_at_church':
+        return Icons.church;
+      default:
+        return Icons.payment;
+    }
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
@@ -438,7 +555,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   void _deleteReservation(ReservationData reservation) async {
-    AppLogger.debug('User initiated reservation deletion: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
+    AppLogger.debug('User initiated reservation deletion: ${reservation.reservationId}', 'MY_BOOKINGS');
     
     showDialog(
       context: context,
@@ -462,7 +579,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 final navigator = Navigator.of(context);
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-                AppLogger.info('Deleting reservation: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
+                AppLogger.info('Deleting reservation: ${reservation.reservationId}', 'MY_BOOKINGS');
 
                 try {
                   await FirebaseFirestore.instance
@@ -470,7 +587,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       .doc(reservation.reservationId)
                       .delete();
 
-                  AppLogger.info('Successfully deleted reservation: ${reservation.reservationId}', 'MY_BOOKINGS'); // ADD THIS
+                  AppLogger.info('Successfully deleted reservation: ${reservation.reservationId}', 'MY_BOOKINGS');
 
                   if (mounted) {
                     navigator.pop();
@@ -483,7 +600,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     );
                   }
                 } catch (e) {
-                  AppLogger.error('Failed to delete reservation: ${reservation.reservationId}', e, StackTrace.current, 'MY_BOOKINGS'); // ADD THIS
+                  AppLogger.error('Failed to delete reservation: ${reservation.reservationId}', e, StackTrace.current, 'MY_BOOKINGS');
                   if (mounted) {
                     navigator.pop();
                     scaffoldMessenger.showSnackBar(
@@ -509,5 +626,140 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         );
       },
     );
+  }
+}
+
+// Extended ReservationData class to include payment fields
+class ReservationData {
+  String reservationId;
+  final String userId;
+  final String eventType;
+  final String name;
+  final String email;
+  final String contact;
+  final DateTime date;
+  final String timeFrom;
+  final String timeTo;
+  final String comments;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<DocumentImage> documents;
+  
+  // Payment fields
+  final String? paymentStatus;
+  final double? paymentAmount;
+  final DateTime? paymentSubmittedAt;
+
+  ReservationData({
+    required this.reservationId,
+    required this.userId,
+    required this.eventType,
+    required this.name,
+    required this.email,
+    required this.contact,
+    required this.date,
+    required this.timeFrom,
+    required this.timeTo,
+    required this.comments,
+    this.status = "pending",
+    required this.createdAt,
+    required this.updatedAt,
+    this.documents = const [],
+    this.paymentStatus,
+    this.paymentAmount,
+    this.paymentSubmittedAt,
+  });
+
+  factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
+    List<DocumentImage> documentsList = [];
+    if (data['documents'] != null && data['documents'] is List) {
+      documentsList = (data['documents'] as List)
+          .map((doc) => DocumentImage.fromMap(doc as Map<String, dynamic>))
+          .toList();
+    }
+
+    return ReservationData(
+      reservationId: id,
+      userId: data['userId'] ?? '',
+      eventType: data['eventType'] ?? '',
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      contact: data['contact'] ?? '',
+      date: (data['date'] is Timestamp)
+          ? (data['date'] as Timestamp).toDate()
+          : DateTime.tryParse(data['date']?.toString() ?? '') ?? DateTime.now(),
+      timeFrom: data['timeFrom'] ?? '',
+      timeTo: data['timeTo'] ?? '',
+      comments: data['comments'] ?? '',
+      status: data['status'] ?? 'pending',
+      createdAt: (data['createdAt'] is Timestamp)
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] is Timestamp)
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+      documents: documentsList,
+      paymentStatus: data['paymentStatus'],
+      paymentAmount: data['paymentAmount']?.toDouble(),
+      paymentSubmittedAt: data['paymentSubmittedAt'] != null 
+          ? (data['paymentSubmittedAt'] as Timestamp).toDate()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'eventType': eventType,
+      'name': name,
+      'email': email,
+      'contact': contact,
+      'date': date,
+      'timeFrom': timeFrom,
+      'timeTo': timeTo,
+      'comments': comments,
+      'status': status,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+      'documents': documents.map((doc) => doc.toMap()).toList(),
+      'paymentStatus': paymentStatus,
+      'paymentAmount': paymentAmount,
+      'paymentSubmittedAt': paymentSubmittedAt,
+    };
+  }
+}
+
+class DocumentImage {
+  final String name;
+  final String base64Data;
+  final String type;
+  final DateTime uploadedAt;
+
+  DocumentImage({
+    required this.name,
+    required this.base64Data,
+    required this.type,
+    required this.uploadedAt,
+  });
+
+  factory DocumentImage.fromMap(Map<String, dynamic> data) {
+    return DocumentImage(
+      name: data['name'] ?? '',
+      base64Data: data['base64Data'] ?? '',
+      type: data['type'] ?? 'gallery',
+      uploadedAt: (data['uploadedAt'] is Timestamp)
+          ? (data['uploadedAt'] as Timestamp).toDate()
+          : DateTime.tryParse(data['uploadedAt']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'base64Data': base64Data,
+      'type': type,
+      'uploadedAt': uploadedAt,
+    };
   }
 }

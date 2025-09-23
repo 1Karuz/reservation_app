@@ -1,7 +1,7 @@
-// models/user_session.dart
+// models/user_session.dart (Updated with payment fields)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/app_logger.dart'; // ADD THIS IMPORT
+import '../services/app_logger.dart';
 
 class UserSession {
   static String _email = '';
@@ -14,32 +14,32 @@ class UserSession {
   static bool get isCleared => _isCleared;
 
   static void setemail(String email) {
-    AppLogger.debug('Setting user email in session: $email', 'SESSION'); // ADD THIS
+    AppLogger.debug('Setting user email in session: $email', 'SESSION');
     _email = email;
     _isCleared = false;
   }
 
   static void addReservation(ReservationData reservation) {
     if (!_isCleared) {
-      AppLogger.debug('Adding reservation to session: ${reservation.reservationId}', 'SESSION'); // ADD THIS
+      AppLogger.debug('Adding reservation to session: ${reservation.reservationId}', 'SESSION');
       _reservations.add(reservation);
     } else {
-      AppLogger.warning('Attempted to add reservation to cleared session', 'SESSION'); // ADD THIS
+      AppLogger.warning('Attempted to add reservation to cleared session', 'SESSION');
     }
   }
 
   static void removeReservation(int index) {
     if (!_isCleared && index >= 0 && index < _reservations.length) {
       final reservationId = _reservations[index].reservationId;
-      AppLogger.debug('Removing reservation from session at index $index: $reservationId', 'SESSION'); // ADD THIS
+      AppLogger.debug('Removing reservation from session at index $index: $reservationId', 'SESSION');
       _reservations.removeAt(index);
     } else {
-      AppLogger.warning('Invalid attempt to remove reservation at index $index', 'SESSION'); // ADD THIS
+      AppLogger.warning('Invalid attempt to remove reservation at index $index', 'SESSION');
     }
   }
 
   static void clearSession() {
-    AppLogger.info('Clearing user session', 'SESSION'); // ADD THIS
+    AppLogger.info('Clearing user session', 'SESSION');
     _isCleared = true;
     _email = '';
     _reservations.clear();
@@ -48,7 +48,7 @@ class UserSession {
   // Method to check if session is valid
   static bool isValidSession() {
     final isValid = !_isCleared && _email.isNotEmpty;
-    AppLogger.debug('Session validity check: $isValid (cleared: $_isCleared, email: ${_email.isNotEmpty ? "present" : "empty"})', 'SESSION'); // ADD THIS
+    AppLogger.debug('Session validity check: $isValid (cleared: $_isCleared, email: ${_email.isNotEmpty ? "present" : "empty"})', 'SESSION');
     return isValid;
   }
 }
@@ -67,7 +67,13 @@ class ReservationData {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final List<DocumentImage> documents; // New field for document images
+  final List<DocumentImage> documents;
+  
+  // Payment fields
+  final String? paymentStatus;
+  final double? paymentAmount;
+  final DateTime? paymentSubmittedAt;
+  final List<DocumentImage>? paymentReceipts;
 
   ReservationData({
     required this.reservationId,
@@ -83,13 +89,24 @@ class ReservationData {
     this.status = "pending",
     required this.createdAt,
     required this.updatedAt,
-    this.documents = const [], // Initialize empty list
+    this.documents = const [],
+    this.paymentStatus,
+    this.paymentAmount,
+    this.paymentSubmittedAt,
+    this.paymentReceipts,
   });
 
   factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
     List<DocumentImage> documentsList = [];
     if (data['documents'] != null && data['documents'] is List) {
       documentsList = (data['documents'] as List)
+          .map((doc) => DocumentImage.fromMap(doc as Map<String, dynamic>))
+          .toList();
+    }
+
+    List<DocumentImage> receiptsList = [];
+    if (data['paymentReceipts'] != null && data['paymentReceipts'] is List) {
+      receiptsList = (data['paymentReceipts'] as List)
           .map((doc) => DocumentImage.fromMap(doc as Map<String, dynamic>))
           .toList();
     }
@@ -115,6 +132,12 @@ class ReservationData {
           ? (data['updatedAt'] as Timestamp).toDate()
           : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
       documents: documentsList,
+      paymentStatus: data['paymentStatus'],
+      paymentAmount: data['paymentAmount']?.toDouble(),
+      paymentSubmittedAt: data['paymentSubmittedAt'] != null 
+          ? (data['paymentSubmittedAt'] as Timestamp).toDate()
+          : null,
+      paymentReceipts: receiptsList.isEmpty ? null : receiptsList,
     );
   }
 
@@ -133,6 +156,10 @@ class ReservationData {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'documents': documents.map((doc) => doc.toMap()).toList(),
+      'paymentStatus': paymentStatus,
+      'paymentAmount': paymentAmount,
+      'paymentSubmittedAt': paymentSubmittedAt,
+      'paymentReceipts': paymentReceipts?.map((doc) => doc.toMap()).toList(),
     };
   }
 }

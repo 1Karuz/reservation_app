@@ -1,16 +1,18 @@
-// pages/success_page.dart
+// pages/success_page.dart (Updated)
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import '../services/app_logger.dart'; // ADD THIS IMPORT
+import 'payment_page.dart';
+import '../services/app_logger.dart';
 
 class SuccessPage extends StatelessWidget {
-final String eventType;
-final String name;
-final String email;
-final DateTime date;
-final String contact;
-final String timeFrom;
-final String timeTo;
+  final String eventType;
+  final String name;
+  final String email;
+  final DateTime date;
+  final String contact;
+  final String timeFrom;
+  final String timeTo;
+  final String reservationId;
 
   const SuccessPage({
     super.key,
@@ -21,15 +23,15 @@ final String timeTo;
     required this.contact,
     required this.timeFrom,
     required this.timeTo,
+    required this.reservationId,
   });
 
   @override
   Widget build(BuildContext context) {
-    AppLogger.info('Success page displayed for event: $eventType'); // ADD THIS
+    AppLogger.info('Success page displayed for event: $eventType');
     
     final serviceColor = _getServiceColor(eventType);
     final serviceIcon = _getServiceIcon(eventType);
-    final tagline = _getServiceTagline(eventType);
 
     return Scaffold(
       backgroundColor: const Color(0xFF2D2D2D),
@@ -39,12 +41,7 @@ final String timeTo;
           'Reservation Confirmed!',
           style: TextStyle(color: Colors.white),
         ),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         child: Center(
@@ -118,23 +115,13 @@ final String timeTo;
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Kindly wait for admin approval',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
                     ],
                   ),
                 ),
                 
                 const SizedBox(height: 20),
 
-                // Service Information Card
+                // Reservation Details Card
                 Container(
                   padding: const EdgeInsets.all(25),
                   decoration: BoxDecoration(
@@ -214,129 +201,113 @@ final String timeTo;
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
 
-                // Service Tagline Card
-                Container(
-                  padding: const EdgeInsets.all(25),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        serviceColor.withOpacity(0.05),
-                        serviceColor.withOpacity(0.1),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: serviceColor.withOpacity(0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: serviceColor,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Important Information',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: serviceColor,
-                            ),
+                // Action Buttons
+                Column(
+                  children: [
+                    // Proceed to Payment Button
+                    Container(
+                      width: double.infinity,
+                      height: 55,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [serviceColor.withOpacity(0.8), serviceColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: serviceColor.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 15),
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: serviceColor.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          AppLogger.ui('User proceeding to payment page');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PaymentPage(
+                                eventType: eventType,
+                                name: name,
+                                email: email,
+                                date: date,
+                                contact: contact,
+                                timeFrom: timeFrom,
+                                timeTo: timeTo,
+                                reservationId: reservationId,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.payment, size: 22),
+                            SizedBox(width: 8),
+                            Text(
+                              'Proceed to Payment',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
-                        child: Text(
-                          tagline,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.6,
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.justify,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // Go Home Button
-                Container(
-                  width: 200,
-                  height: 55,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [serviceColor.withOpacity(0.8), serviceColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: serviceColor.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      AppLogger.ui('User navigating home from success page'); // ADD THIS
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (context) => const HomeScreen()),
-                        (route) => false,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.home, size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          'Go Home',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+
+                    const SizedBox(height: 15),
+
+                    // Skip Payment Button
+                    Container(
+                      width: double.infinity,
+                      height: 55,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          AppLogger.ui('User skipping payment page');
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => const HomeScreen()),
+                            (route) => false,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: serviceColor, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
                           ),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.home, color: serviceColor, size: 22),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Go Home (Pay Later)',
+                              style: TextStyle(
+                                color: serviceColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 
                 const SizedBox(height: 20),
@@ -348,37 +319,20 @@ final String timeTo;
     );
   }
 
-  String _getServiceTagline(String eventType) {
-    switch (eventType.toLowerCase()) {
-      case 'wedding':
-        return "Your wedding ceremony is confirmed. The customary church stipend for the sacrament of Matrimony is approximately ₱5,000 - ₱12,000. Please coordinate with the parish office to finalize this offering and any additional arrangements.";
-      case 'baptism':
-        return "Your child's Baptism is reserved. A customary donation of around ₱400 - ₱2,500 for the church's ministry is appreciated. Kindly be ready to offer this stipend at the parish office on the day of the baptism.";
-      case 'funeral':
-        return "We are sorry for your loss. The funeral mass has been arranged. A stipend of approximately ₱1,000 - ₱5,000 for the celebrant and church is customary. Please settle this at the parish office at your convenience.";
-      case 'house blessing':
-        return "Your house blessing is scheduled. The customary stipend for the priest's ministry is typically ₱1,000 - ₱3,000. Please prepare this offering for him after the blessing ceremony.";
-      case 'confession':
-        return "Your time for the Sacrament of Reconciliation is reserved. Please note that confession is a gift of grace and has no required fee. A voluntary donation to support the church's ministry is always welcome but entirely optional.";
-      default:
-        return "Your reservation has been confirmed. Please contact the parish office for any additional information regarding customary donations or arrangements.";
-    }
-  }
-
   Color _getServiceColor(String eventType) {
     switch (eventType.toLowerCase()) {
       case 'wedding':
-        return const Color(0xFFE91E63); // Pink for wedding
+        return const Color(0xFFE91E63);
       case 'baptism':
-        return const Color(0xFF2196F3); // Blue for baptism
+        return const Color(0xFF2196F3);
       case 'funeral':
-        return const Color(0xFF757575); // Grey for funeral
+        return const Color(0xFF757575);
       case 'house blessing':
-        return const Color(0xFF4CAF50); // Green for house blessing
+        return const Color(0xFF4CAF50);
       case 'confession':
-        return const Color(0xFF9C27B0); // Purple for confession
+        return const Color(0xFF9C27B0);
       default:
-        return const Color(0xFF607D8B); // Blue grey default
+        return const Color(0xFF607D8B);
     }
   }
 

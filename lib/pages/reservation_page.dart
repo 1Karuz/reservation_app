@@ -1221,113 +1221,111 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
-  void _saveReservation() async {
-    if (_formKey.currentState!.validate()) {
-      final messenger = ScaffoldMessenger.of(context);
-      final navigator = Navigator.of(context);
-      final user = FirebaseAuth.instance.currentUser;
+// pages/reservation_page.dart (Updated _saveReservation method)
+// Replace the existing _saveReservation method with this updated version:
 
-      AppLogger.reservation(
-          'Starting reservation save process for ${widget.eventType}');
+void _saveReservation() async {
+  if (_formKey.currentState!.validate()) {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final user = FirebaseAuth.instance.currentUser;
 
-      // Check if documents are required and uploaded
-      if (widget.eventType.toLowerCase() != 'house blessing' &&
-          uploadedDocuments.isEmpty) {
-        AppLogger.warning(
-            'No documents uploaded for ${widget.eventType} reservation',
-            'RESERVATION');
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Please upload at least one required document'),
-            backgroundColor: Colors.redAccent,
+    AppLogger.reservation('Starting reservation save process for ${widget.eventType}');
+
+    // Check if documents are required and uploaded
+    if (widget.eventType.toLowerCase() != 'house blessing' &&
+        uploadedDocuments.isEmpty) {
+      AppLogger.warning('No documents uploaded for ${widget.eventType} reservation', 'RESERVATION');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Please upload at least one required document'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Final validation before saving
+    if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
+      AppLogger.warning('Selected date is no longer available: $selectedDate', 'RESERVATION');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Selected date is no longer available'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 150,
+            right: 20,
+            left: 20,
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final reservation = ReservationData(
+      reservationId: '',
+      userId: user!.uid,
+      eventType: widget.eventType,
+      name: nameController.text.trim(),
+      email: user.email ?? '',
+      contact: contactController.text.trim(),
+      date: selectedDate!,
+      timeFrom: selectedFromTime!.format(context),
+      timeTo: selectedToTime!.format(context),
+      comments: commentsController.text.trim(),
+      status: "pending",
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      documents: uploadedDocuments,
+    );
+
+    AppLogger.reservation('Reservation data prepared - Event: ${widget.eventType}, Date: $selectedDate, User: ${user.uid}');
+
+    try {
+      final docRef = await FirebaseFirestore.instance
+          .collection('reservations')
+          .add(reservation.toMap());
+
+      reservation.reservationId = docRef.id;
+      UserSession.addReservation(reservation);
+
+      AppLogger.reservation('Successfully saved reservation with ID: ${docRef.id}');
+
+      if (mounted) {
+        // Navigate to success page with reservation ID for payment flow
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) => SuccessPage(
+              eventType: widget.eventType,
+              name: reservation.name,
+              email: reservation.email,
+              date: reservation.date,
+              contact: reservation.contact,
+              timeFrom: reservation.timeFrom,
+              timeTo: reservation.timeTo,
+              reservationId: docRef.id, // Add this line
+            ),
           ),
         );
-        return;
       }
-
-      // Final validation before saving
-      if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
-        AppLogger.warning('Selected date is no longer available: $selectedDate',
-            'RESERVATION');
+    } catch (e) {
+      AppLogger.error('Failed to save reservation to Firestore', e, StackTrace.current, 'RESERVATION');
+      if (mounted) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text('Selected date is no longer available'),
+            content: Text('Failed to save reservation. Please try again.'),
             backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 150,
-              right: 20,
-              left: 20,
-            ),
           ),
         );
-        return;
       }
-
-      setState(() => _isSaving = true);
-
-      final reservation = ReservationData(
-        reservationId: '',
-        userId: user!.uid,
-        eventType: widget.eventType,
-        name: nameController.text.trim(),
-        email: user.email ?? '',
-        contact: contactController.text.trim(),
-        date: selectedDate!,
-        timeFrom: selectedFromTime!.format(context),
-        timeTo: selectedToTime!.format(context),
-        comments: commentsController.text.trim(),
-        status: "pending",
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        documents: uploadedDocuments,
-      );
-
-      AppLogger.reservation(
-          'Reservation data prepared - Event: ${widget.eventType}, Date: $selectedDate, User: ${user.uid}');
-
-      try {
-        final docRef = await FirebaseFirestore.instance
-            .collection('reservations')
-            .add(reservation.toMap());
-
-        reservation.reservationId = docRef.id;
-        UserSession.addReservation(reservation);
-
-        AppLogger.reservation(
-            'Successfully saved reservation with ID: ${docRef.id}');
-
-        if (mounted) {
-          navigator.push(
-            MaterialPageRoute(
-              builder: (context) => SuccessPage(
-                eventType: widget.eventType,
-                name: reservation.name,
-                email: reservation.email,
-                date: reservation.date,
-                contact: reservation.contact,
-                timeFrom: reservation.timeFrom,
-                timeTo: reservation.timeTo,
-              ),
-            ),
-          );
-        }
-      } catch (e) {
-        AppLogger.error('Failed to save reservation to Firestore', e,
-            StackTrace.current, 'RESERVATION');
-        if (mounted) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('Failed to save reservation. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isSaving = false);
-      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
+}
 
   @override
   void dispose() {
