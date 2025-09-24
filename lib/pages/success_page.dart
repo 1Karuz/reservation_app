@@ -1,6 +1,5 @@
-// pages/success_page.dart (Updated)
+// pages/success_page.dart (Updated - Removed "Go Home, Pay Later" button)
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
 import 'payment_page.dart';
 import '../services/app_logger.dart';
 
@@ -203,111 +202,95 @@ class SuccessPage extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                // Action Buttons
-                Column(
-                  children: [
-                    // Proceed to Payment Button
-                    Container(
-                      width: double.infinity,
-                      height: 55,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [serviceColor.withOpacity(0.8), serviceColor],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                // Important Note
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Please proceed to payment to complete your reservation process.',
+                          style: TextStyle(
+                            color: Colors.orange.shade800,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Single Action Button - Proceed to Payment Only
+                Container(
+                  width: double.infinity,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [serviceColor.withOpacity(0.8), serviceColor],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: serviceColor.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      AppLogger.ui('User proceeding to payment page');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PaymentPage(
+                            eventType: eventType,
+                            name: name,
+                            email: email,
+                            date: date,
+                            contact: contact,
+                            timeFrom: timeFrom,
+                            timeTo: timeTo,
+                            reservationId: reservationId,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: serviceColor.withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          AppLogger.ui('User proceeding to payment page');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PaymentPage(
-                                eventType: eventType,
-                                name: name,
-                                email: email,
-                                date: date,
-                                contact: contact,
-                                timeFrom: timeFrom,
-                                timeTo: timeTo,
-                                reservationId: reservationId,
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.payment, size: 22),
-                            SizedBox(width: 8),
-                            Text(
-                              'Proceed to Payment',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
-
-                    const SizedBox(height: 15),
-
-                    // Skip Payment Button
-                    Container(
-                      width: double.infinity,
-                      height: 55,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          AppLogger.ui('User skipping payment page');
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HomeScreen()),
-                            (route) => false,
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: serviceColor, width: 2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.payment, size: 22),
+                        SizedBox(width: 8),
+                        Text(
+                          'Proceed to Payment',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.home, color: serviceColor, size: 22),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Go Home (Pay Later)',
-                              style: TextStyle(
-                                color: serviceColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 
                 const SizedBox(height: 20),

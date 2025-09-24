@@ -1,4 +1,4 @@
-// pages/payment_page.dart
+// pages/payment_page.dart (Updated - Strict receipt validation)
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -346,24 +346,28 @@ class _PaymentPageState extends State<PaymentPage> {
             // Action Buttons
             Column(
               children: [
-                // Pay Online Button
+                // Submit Payment Button (Requires receipts for online payment)
                 Container(
                   width: double.infinity,
                   height: 55,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [serviceColor.withOpacity(0.8), serviceColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    gradient: uploadedReceipts.isEmpty && !isOptional
+                        ? LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade500])
+                        : LinearGradient(
+                            colors: [serviceColor.withOpacity(0.8), serviceColor],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                     borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: serviceColor.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    boxShadow: uploadedReceipts.isNotEmpty || isOptional
+                        ? [
+                            BoxShadow(
+                              color: serviceColor.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ]
+                        : [],
                   ),
                   child: ElevatedButton(
                     onPressed: _isUploading ? null : () => _submitPayment(true),
@@ -393,10 +397,39 @@ class _PaymentPageState extends State<PaymentPage> {
                           ),
                   ),
                 ),
+
+                // Receipt requirement warning for online payment
+                if (uploadedReceipts.isEmpty && !isOptional) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.red.shade600, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Please upload payment receipt to submit online payment',
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 
                 const SizedBox(height: 15),
 
-                // Pay at Church Button
+                // Pay at Church Button (No receipt required)
                 Container(
                   width: double.infinity,
                   height: 55,
@@ -478,19 +511,40 @@ class _PaymentPageState extends State<PaymentPage> {
             children: [
               Icon(Icons.receipt, color: _getServiceColor(widget.eventType), size: 24),
               const SizedBox(width: 10),
-              Text(
-                'Upload Payment Receipt',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _getServiceColor(widget.eventType),
+              Expanded(
+                child: Text(
+                  'Upload Payment Receipt',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _getServiceColor(widget.eventType),
+                  ),
                 ),
               ),
+              if (!isPaymentOptional())
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.shade300),
+                  ),
+                  child: Text(
+                    'REQUIRED',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 15),
-          Text(
-            'Upload a screenshot or photo of your payment receipt for verification.',
+                      Text(
+            isPaymentOptional()
+                ? 'Upload a screenshot or photo of your payment receipt (optional for donations).'
+                : 'Upload a screenshot or photo of your payment receipt for verification. Required for online payment submission.',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -718,6 +772,18 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _submitPayment(bool paidOnline) async {
+    // Strict validation: Online payment requires receipts (except for optional payments)
+    if (paidOnline && uploadedReceipts.isEmpty && !isPaymentOptional()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload at least one payment receipt before submitting online payment.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isUploading = true);
 
     try {
@@ -740,7 +806,7 @@ class _PaymentPageState extends State<PaymentPage> {
           SnackBar(
             content: Text(paidOnline 
                 ? 'Payment submitted successfully!' 
-                : 'Reservation confirmed. Payment can be made at church.'),
+                : 'Reservation confirmed. Payment will be made at the church.'),
             backgroundColor: Colors.green,
           ),
         );

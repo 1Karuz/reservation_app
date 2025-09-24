@@ -76,7 +76,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
-                    AppLogger.error('Error loading user reservations', snapshot.error, StackTrace.current, 'MY_BOOKINGS');
+                    AppLogger.error('Error loading user reservations',
+                        snapshot.error, StackTrace.current, 'MY_BOOKINGS');
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -122,7 +123,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    AppLogger.debug('No reservations found for user', 'MY_BOOKINGS');
+                    AppLogger.debug(
+                        'No reservations found for user', 'MY_BOOKINGS');
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -173,13 +175,15 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       // Add payment fields
                       paymentStatus: data['paymentStatus'],
                       paymentAmount: data['paymentAmount']?.toDouble(),
-                      paymentSubmittedAt: data['paymentSubmittedAt'] != null 
+                      paymentSubmittedAt: data['paymentSubmittedAt'] != null
                           ? (data['paymentSubmittedAt'] as Timestamp).toDate()
                           : null,
                     );
                   }).toList();
 
-                  AppLogger.debug('Loaded ${reservations.length} reservations for user', 'MY_BOOKINGS');
+                  AppLogger.debug(
+                      'Loaded ${reservations.length} reservations for user',
+                      'MY_BOOKINGS');
 
                   return ListView.builder(
                     itemCount: reservations.length,
@@ -209,20 +213,23 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: _getEventColor(reservation.eventType)
-                                          .withOpacity(0.1),
+                                      color:
+                                          _getEventColor(reservation.eventType)
+                                              .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(
                                       _getEventIcon(reservation.eventType),
-                                      color: _getEventColor(reservation.eventType),
+                                      color:
+                                          _getEventColor(reservation.eventType),
                                       size: 20,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           reservation.eventType,
@@ -250,19 +257,25 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                               const SizedBox(height: 16),
 
                               // Details
-                              _buildDetailRow(Icons.person_outline, 'Name', reservation.name),
-                              _buildDetailRow(Icons.email_outlined, 'Email', reservation.email),
+                              _buildDetailRow(Icons.person_outline, 'Name',
+                                  reservation.name),
+                              _buildDetailRow(Icons.email_outlined, 'Email',
+                                  reservation.email),
                               _buildDetailRow(
                                 Icons.calendar_today_outlined,
                                 'Date',
-                                reservation.date.toLocal().toString().split(' ')[0],
+                                reservation.date
+                                    .toLocal()
+                                    .toString()
+                                    .split(' ')[0],
                               ),
                               _buildDetailRow(
                                 Icons.access_time_outlined,
                                 'Time',
                                 '${reservation.timeFrom} - ${reservation.timeTo}',
                               ),
-                              _buildDetailRow(Icons.phone_outlined, 'Contact', reservation.contact),
+                              _buildDetailRow(Icons.phone_outlined, 'Contact',
+                                  reservation.contact),
 
                               // Payment Status (if exists)
                               if (reservation.paymentStatus != null)
@@ -271,7 +284,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                               // Comments (if any)
                               if (reservation.comments.isNotEmpty) ...[
                                 const SizedBox(height: 8),
-                                _buildDetailRow(Icons.message_outlined, 'Comments', reservation.comments),
+                                _buildDetailRow(Icons.message_outlined,
+                                    'Comments', reservation.comments),
                               ],
 
                               // Delete button for pending reservations
@@ -283,14 +297,18 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton.icon(
-                                      onPressed: () => _deleteReservation(reservation),
-                                      icon: const Icon(Icons.delete_outline, size: 18),
+                                      onPressed: () =>
+                                          _deleteReservation(reservation),
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 18),
                                       label: const Text('Delete'),
                                       style: TextButton.styleFrom(
                                         foregroundColor: Colors.red,
-                                        backgroundColor: Colors.red.withOpacity(0.1),
+                                        backgroundColor:
+                                            Colors.red.withOpacity(0.1),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                         ),
                                       ),
                                     ),
@@ -346,10 +364,12 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.1),
+        color:
+            _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: _getPaymentStatusColor(reservation.paymentStatus).withOpacity(0.3),
+          color: _getPaymentStatusColor(reservation.paymentStatus)
+              .withOpacity(0.3),
         ),
       ),
       child: Column(
@@ -381,7 +401,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
               color: Colors.grey[700],
             ),
           ),
-          if (reservation.paymentAmount != null && reservation.paymentAmount! > 0)
+          if (reservation.paymentAmount != null &&
+              reservation.paymentAmount! > 0)
             Text(
               'Amount: ₱${reservation.paymentAmount!.toStringAsFixed(0)}',
               style: TextStyle(
@@ -414,7 +435,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'payment_pending':
         return 'Payment verification pending';
       default:
-        return 'No payment information';
+        return 'No payment information available';
     }
   }
 
@@ -442,7 +463,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       case 'pay_at_church':
         return Icons.church;
       default:
-        return Icons.payment;
+        return Icons.payment_outlined;
     }
   }
 
@@ -555,8 +576,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   }
 
   void _deleteReservation(ReservationData reservation) async {
-    AppLogger.debug('User initiated reservation deletion: ${reservation.reservationId}', 'MY_BOOKINGS');
-    
+    AppLogger.debug(
+        'User initiated reservation deletion: ${reservation.reservationId}',
+        'MY_BOOKINGS');
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -568,7 +591,8 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             'Delete Reservation',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          content: const Text('Are you sure you want to delete this reservation?'),
+          content:
+              const Text('Are you sure you want to delete this reservation?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -579,7 +603,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                 final navigator = Navigator.of(context);
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-                AppLogger.info('Deleting reservation: ${reservation.reservationId}', 'MY_BOOKINGS');
+                AppLogger.info(
+                    'Deleting reservation: ${reservation.reservationId}',
+                    'MY_BOOKINGS');
 
                 try {
                   await FirebaseFirestore.instance
@@ -587,7 +613,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                       .doc(reservation.reservationId)
                       .delete();
 
-                  AppLogger.info('Successfully deleted reservation: ${reservation.reservationId}', 'MY_BOOKINGS');
+                  AppLogger.info(
+                      'Successfully deleted reservation: ${reservation.reservationId}',
+                      'MY_BOOKINGS');
 
                   if (mounted) {
                     navigator.pop();
@@ -600,12 +628,17 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     );
                   }
                 } catch (e) {
-                  AppLogger.error('Failed to delete reservation: ${reservation.reservationId}', e, StackTrace.current, 'MY_BOOKINGS');
+                  AppLogger.error(
+                      'Failed to delete reservation: ${reservation.reservationId}',
+                      e,
+                      StackTrace.current,
+                      'MY_BOOKINGS');
                   if (mounted) {
                     navigator.pop();
                     scaffoldMessenger.showSnackBar(
                       const SnackBar(
-                        content: Text('Failed to delete reservation. Please try again.'),
+                        content: Text(
+                            'Failed to delete reservation. Please try again.'),
                         backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -645,7 +678,7 @@ class ReservationData {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<DocumentImage> documents;
-  
+
   // Payment fields
   final String? paymentStatus;
   final double? paymentAmount;
@@ -695,14 +728,16 @@ class ReservationData {
       status: data['status'] ?? 'pending',
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['createdAt']?.toString() ?? '') ?? DateTime.now(),
+          : DateTime.tryParse(data['createdAt']?.toString() ?? '') ??
+              DateTime.now(),
       updatedAt: (data['updatedAt'] is Timestamp)
           ? (data['updatedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ?? DateTime.now(),
+          : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ??
+              DateTime.now(),
       documents: documentsList,
       paymentStatus: data['paymentStatus'],
       paymentAmount: data['paymentAmount']?.toDouble(),
-      paymentSubmittedAt: data['paymentSubmittedAt'] != null 
+      paymentSubmittedAt: data['paymentSubmittedAt'] != null
           ? (data['paymentSubmittedAt'] as Timestamp).toDate()
           : null,
     );
@@ -750,7 +785,8 @@ class DocumentImage {
       type: data['type'] ?? 'gallery',
       uploadedAt: (data['uploadedAt'] is Timestamp)
           ? (data['uploadedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['uploadedAt']?.toString() ?? '') ?? DateTime.now(),
+          : DateTime.tryParse(data['uploadedAt']?.toString() ?? '') ??
+              DateTime.now(),
     );
   }
 
