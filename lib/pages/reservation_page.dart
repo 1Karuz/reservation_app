@@ -1008,7 +1008,8 @@ class _ReservationPageState extends State<ReservationPage> {
         const SizedBox(height: 30),
         _buildSectionHeader('Sponsors (Ninong/Ninang)', Icons.groups),
         const SizedBox(height: 20),
-        _buildModernTextField('Sponsors Names', sponsorsController,
+        _buildModernTextField(
+            'Sponsors Names (separated by comma)', sponsorsController,
             icon: Icons.people_outline, maxLines: 3, isRequired: true),
       ],
     );
@@ -1839,7 +1840,7 @@ class _ReservationPageState extends State<ReservationPage> {
           return 'Please select the parents\' marriage type';
         }
         if (sponsorsController.text.trim().isEmpty) {
-          return 'Please enter the sponsors\' names';
+          return 'Please enter the sponsors\' names (separate multiple sponsors with commas)';
         }
         break;
 
