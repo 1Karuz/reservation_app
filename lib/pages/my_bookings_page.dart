@@ -1,8 +1,10 @@
-// pages/my_bookings_page.dart (Updated with payment status)
+// pages/my_bookings_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/app_logger.dart';
+import '../models/user_session.dart';
 
 class MyBookingsPage extends StatefulWidget {
   const MyBookingsPage({super.key});
@@ -158,27 +160,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
                   final reservations = snapshot.data!.docs.map((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    return ReservationData(
-                      reservationId: doc.id,
-                      userId: data['userId'] ?? '',
-                      eventType: data['eventType'] ?? '',
-                      name: data['name'] ?? '',
-                      email: data['email'] ?? '',
-                      contact: data['contact'] ?? '',
-                      date: (data['date'] as Timestamp).toDate(),
-                      timeFrom: data['timeFrom'] ?? '',
-                      timeTo: data['timeTo'] ?? '',
-                      comments: data['comments'] ?? '',
-                      status: data['status'] ?? 'pending',
-                      createdAt: (data['createdAt'] as Timestamp).toDate(),
-                      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
-                      // Add payment fields
-                      paymentStatus: data['paymentStatus'],
-                      paymentAmount: data['paymentAmount']?.toDouble(),
-                      paymentSubmittedAt: data['paymentSubmittedAt'] != null
-                          ? (data['paymentSubmittedAt'] as Timestamp).toDate()
-                          : null,
-                    );
+                    return ReservationData.fromFirestore(data, doc.id);
                   }).toList();
 
                   AppLogger.debug(
@@ -256,11 +238,10 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
                               const SizedBox(height: 16),
 
-                              // Details
-                              _buildDetailRow(Icons.person_outline, 'Name',
-                                  reservation.name),
-                              _buildDetailRow(Icons.email_outlined, 'Email',
-                                  reservation.email),
+                              // Event-specific details
+                              ..._buildEventSpecificDetails(reservation),
+
+                              const SizedBox(height: 8),
                               _buildDetailRow(
                                 Icons.calendar_today_outlined,
                                 'Date',
@@ -328,6 +309,105 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         ),
       ),
     );
+  }
+
+  // Build event-specific detail rows
+  List<Widget> _buildEventSpecificDetails(ReservationData reservation) {
+    switch (reservation.eventType.toLowerCase()) {
+      case 'wedding':
+        return [
+          _buildDetailRow(Icons.male, 'Groom', reservation.groomName ?? '-'),
+          _buildDetailRow(Icons.female, 'Bride', reservation.brideName ?? '-'),
+          if (reservation.groomFather != null)
+            _buildDetailRow(Icons.person_outline, 'Groom\'s Father',
+                reservation.groomFather!),
+          if (reservation.groomMother != null)
+            _buildDetailRow(Icons.person_outline, 'Groom\'s Mother',
+                reservation.groomMother!),
+          if (reservation.brideFather != null)
+            _buildDetailRow(Icons.person_outline, 'Bride\'s Father',
+                reservation.brideFather!),
+          if (reservation.brideMother != null)
+            _buildDetailRow(Icons.person_outline, 'Bride\'s Mother',
+                reservation.brideMother!),
+        ];
+
+      case 'baptism':
+        return [
+          _buildDetailRow(
+              Icons.child_care, 'Child', reservation.childName ?? '-'),
+          if (reservation.childBirthdate != null)
+            _buildDetailRow(
+                Icons.cake, 'Birth Date', reservation.childBirthdate!),
+          if (reservation.childBirthplace != null)
+            _buildDetailRow(
+                Icons.location_on, 'Birth Place', reservation.childBirthplace!),
+          if (reservation.fatherName != null)
+            _buildDetailRow(Icons.person, 'Father', reservation.fatherName!),
+          if (reservation.motherMaidenName != null)
+            _buildDetailRow(
+                Icons.person, 'Mother', reservation.motherMaidenName!),
+          if (reservation.parentMarriageType != null)
+            _buildDetailRow(Icons.favorite, 'Parents Marriage',
+                reservation.parentMarriageType!),
+          if (reservation.sponsors != null)
+            _buildDetailRow(Icons.groups, 'Sponsors', reservation.sponsors!),
+        ];
+
+      case 'funeral':
+        return [
+          _buildDetailRow(
+              Icons.person, 'Deceased', reservation.deceasedName ?? '-'),
+          if (reservation.deceasedAge != null)
+            _buildDetailRow(
+                Icons.calendar_today, 'Age', reservation.deceasedAge!),
+          if (reservation.deathDate != null)
+            _buildDetailRow(
+                Icons.event, 'Date of Death', reservation.deathDate!),
+          if (reservation.burialDate != null)
+            _buildDetailRow(
+                Icons.event_available, 'Date Buried', reservation.burialDate!),
+          if (reservation.residence != null)
+            _buildDetailRow(Icons.home, 'Residence', reservation.residence!),
+          if (reservation.causeOfDeath != null)
+            _buildDetailRow(Icons.medical_services, 'Cause of Death',
+                reservation.causeOfDeath!),
+          if (reservation.guardianName != null)
+            _buildDetailRow(Icons.supervisor_account, 'Guardian',
+                reservation.guardianName!),
+          if (reservation.burialPlace != null)
+            _buildDetailRow(
+                Icons.place, 'Burial Place', reservation.burialPlace!),
+          if (reservation.wasBaptized != null)
+            _buildDetailRow(Icons.church, 'Was Baptized',
+                reservation.wasBaptized! ? 'Yes' : 'No'),
+          if (reservation.receivedLastSacrament != null)
+            _buildDetailRow(Icons.volunteer_activism, 'Last Sacrament',
+                reservation.receivedLastSacrament! ? 'Yes' : 'No'),
+        ];
+
+      case 'house blessing':
+        return [
+          _buildDetailRow(Icons.person, 'Homeowner',
+              reservation.homeownerName ?? reservation.name),
+          if (reservation.houseAddress != null)
+            _buildDetailRow(Icons.home, 'Address', reservation.houseAddress!),
+        ];
+
+      case 'confession':
+        return [
+          _buildDetailRow(
+              Icons.person, 'Name', reservation.personName ?? reservation.name),
+          if (reservation.notes != null && reservation.notes!.isNotEmpty)
+            _buildDetailRow(Icons.note, 'Notes', reservation.notes!),
+        ];
+
+      default:
+        return [
+          _buildDetailRow(Icons.person_outline, 'Name', reservation.name),
+          _buildDetailRow(Icons.email_outlined, 'Email', reservation.email),
+        ];
+    }
   }
 
   Widget _buildStatusBadge(String status) {
@@ -469,7 +549,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -478,9 +558,9 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             size: 16,
             color: Colors.grey[600],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           SizedBox(
-            width: 80,
+            width: 120, // Fixed width for labels to prevent wrapping
             child: Text(
               '$label:',
               style: TextStyle(
@@ -490,6 +570,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value.isEmpty ? '-' : value,
@@ -659,143 +740,5 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
         );
       },
     );
-  }
-}
-
-// Extended ReservationData class to include payment fields
-class ReservationData {
-  String reservationId;
-  final String userId;
-  final String eventType;
-  final String name;
-  final String email;
-  final String contact;
-  final DateTime date;
-  final String timeFrom;
-  final String timeTo;
-  final String comments;
-  final String status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final List<DocumentImage> documents;
-
-  // Payment fields
-  final String? paymentStatus;
-  final double? paymentAmount;
-  final DateTime? paymentSubmittedAt;
-
-  ReservationData({
-    required this.reservationId,
-    required this.userId,
-    required this.eventType,
-    required this.name,
-    required this.email,
-    required this.contact,
-    required this.date,
-    required this.timeFrom,
-    required this.timeTo,
-    required this.comments,
-    this.status = "pending",
-    required this.createdAt,
-    required this.updatedAt,
-    this.documents = const [],
-    this.paymentStatus,
-    this.paymentAmount,
-    this.paymentSubmittedAt,
-  });
-
-  factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
-    List<DocumentImage> documentsList = [];
-    if (data['documents'] != null && data['documents'] is List) {
-      documentsList = (data['documents'] as List)
-          .map((doc) => DocumentImage.fromMap(doc as Map<String, dynamic>))
-          .toList();
-    }
-
-    return ReservationData(
-      reservationId: id,
-      userId: data['userId'] ?? '',
-      eventType: data['eventType'] ?? '',
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      contact: data['contact'] ?? '',
-      date: (data['date'] is Timestamp)
-          ? (data['date'] as Timestamp).toDate()
-          : DateTime.tryParse(data['date']?.toString() ?? '') ?? DateTime.now(),
-      timeFrom: data['timeFrom'] ?? '',
-      timeTo: data['timeTo'] ?? '',
-      comments: data['comments'] ?? '',
-      status: data['status'] ?? 'pending',
-      createdAt: (data['createdAt'] is Timestamp)
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['createdAt']?.toString() ?? '') ??
-              DateTime.now(),
-      updatedAt: (data['updatedAt'] is Timestamp)
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['updatedAt']?.toString() ?? '') ??
-              DateTime.now(),
-      documents: documentsList,
-      paymentStatus: data['paymentStatus'],
-      paymentAmount: data['paymentAmount']?.toDouble(),
-      paymentSubmittedAt: data['paymentSubmittedAt'] != null
-          ? (data['paymentSubmittedAt'] as Timestamp).toDate()
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'eventType': eventType,
-      'name': name,
-      'email': email,
-      'contact': contact,
-      'date': date,
-      'timeFrom': timeFrom,
-      'timeTo': timeTo,
-      'comments': comments,
-      'status': status,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-      'documents': documents.map((doc) => doc.toMap()).toList(),
-      'paymentStatus': paymentStatus,
-      'paymentAmount': paymentAmount,
-      'paymentSubmittedAt': paymentSubmittedAt,
-    };
-  }
-}
-
-class DocumentImage {
-  final String name;
-  final String base64Data;
-  final String type;
-  final DateTime uploadedAt;
-
-  DocumentImage({
-    required this.name,
-    required this.base64Data,
-    required this.type,
-    required this.uploadedAt,
-  });
-
-  factory DocumentImage.fromMap(Map<String, dynamic> data) {
-    return DocumentImage(
-      name: data['name'] ?? '',
-      base64Data: data['base64Data'] ?? '',
-      type: data['type'] ?? 'gallery',
-      uploadedAt: (data['uploadedAt'] is Timestamp)
-          ? (data['uploadedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['uploadedAt']?.toString() ?? '') ??
-              DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'base64Data': base64Data,
-      'type': type,
-      'uploadedAt': uploadedAt,
-    };
   }
 }

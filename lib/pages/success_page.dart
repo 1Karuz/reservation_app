@@ -25,10 +25,28 @@ class SuccessPage extends StatelessWidget {
     required this.reservationId,
   });
 
+  String _getDisplayName() {
+  switch (eventType.toLowerCase()) {
+    case 'wedding':
+      // Name is already formatted as "Groom & Bride" from reservation_page
+      return name;
+    case 'baptism':
+      return name; // Child's name
+    case 'funeral':
+      return name; // Deceased's name
+    case 'house blessing':
+      return name; // Homeowner's name
+    case 'confession':
+      return name; // Person's name
+    default:
+      return name;
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     AppLogger.info('Success page displayed for event: $eventType');
-    
+
     final serviceColor = _getServiceColor(eventType);
     final serviceIcon = _getServiceIcon(eventType);
 
@@ -45,7 +63,8 @@ class SuccessPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Center(
           child: Container(
-            width: MediaQuery.of(context).size.width > 600 ? 500 : double.infinity,
+            width:
+                MediaQuery.of(context).size.width > 600 ? 500 : double.infinity,
             margin: const EdgeInsets.all(20),
             child: Column(
               children: [
@@ -117,7 +136,7 @@ class SuccessPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
 
                 // Reservation Details Card
@@ -188,11 +207,17 @@ class SuccessPage extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
-                            _buildModernInfoRow('Name', name, Icons.person),
+                            _buildModernInfoRow(
+                                'Name', _getDisplayName(), Icons.person),
                             _buildModernInfoRow('Email', email, Icons.email),
-                            _buildModernInfoRow('Date', date.toLocal().toString().split(' ')[0], Icons.calendar_today),
-                            _buildModernInfoRow('Time', '$timeFrom - $timeTo', Icons.access_time),
-                            _buildModernInfoRow('Contact', contact, Icons.phone),
+                            _buildModernInfoRow(
+                                'Date',
+                                date.toLocal().toString().split(' ')[0],
+                                Icons.calendar_today),
+                            _buildModernInfoRow('Time', '$timeFrom - $timeTo',
+                                Icons.access_time),
+                            _buildModernInfoRow(
+                                'Contact', contact, Icons.phone),
                           ],
                         ),
                       ),
@@ -212,7 +237,8 @@ class SuccessPage extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 24),
+                      Icon(Icons.info_outline,
+                          color: Colors.orange.shade700, size: 24),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -292,7 +318,7 @@ class SuccessPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
               ],
             ),

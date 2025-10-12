@@ -1,4 +1,4 @@
-// models/user_session.dart (Updated with payment fields)
+// models/user_session.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/app_logger.dart';
@@ -45,7 +45,6 @@ class UserSession {
     _reservations.clear();
   }
 
-  // Method to check if session is valid
   static bool isValidSession() {
     final isValid = !_isCleared && _email.isNotEmpty;
     AppLogger.debug('Session validity check: $isValid (cleared: $_isCleared, email: ${_email.isNotEmpty ? "present" : "empty"})', 'SESSION');
@@ -74,6 +73,43 @@ class ReservationData {
   final double? paymentAmount;
   final DateTime? paymentSubmittedAt;
   final List<DocumentImage>? paymentReceipts;
+  
+  // Wedding-specific fields
+  final String? groomName;
+  final String? groomFather;
+  final String? groomMother;
+  final String? brideName;
+  final String? brideFather;
+  final String? brideMother;
+  
+  // Baptism-specific fields
+  final String? childName;
+  final String? childBirthdate;
+  final String? childBirthplace;
+  final String? fatherName;
+  final String? motherMaidenName;
+  final String? parentMarriageType;
+  final String? sponsors;
+  
+  // Funeral-specific fields
+  final String? deceasedName;
+  final String? deceasedAge;
+  final String? deathDate;
+  final String? burialDate;
+  final String? residence;
+  final String? causeOfDeath;
+  final bool? wasBaptized;
+  final bool? receivedLastSacrament;
+  final String? guardianName;
+  final String? burialPlace;
+  
+  // House Blessing-specific fields
+  final String? homeownerName;
+  final String? houseAddress;
+  
+  // Confession-specific fields
+  final String? personName;
+  final String? notes;
 
   ReservationData({
     required this.reservationId,
@@ -94,6 +130,38 @@ class ReservationData {
     this.paymentAmount,
     this.paymentSubmittedAt,
     this.paymentReceipts,
+    // Wedding fields
+    this.groomName,
+    this.groomFather,
+    this.groomMother,
+    this.brideName,
+    this.brideFather,
+    this.brideMother,
+    // Baptism fields
+    this.childName,
+    this.childBirthdate,
+    this.childBirthplace,
+    this.fatherName,
+    this.motherMaidenName,
+    this.parentMarriageType,
+    this.sponsors,
+    // Funeral fields
+    this.deceasedName,
+    this.deceasedAge,
+    this.deathDate,
+    this.burialDate,
+    this.residence,
+    this.causeOfDeath,
+    this.wasBaptized,
+    this.receivedLastSacrament,
+    this.guardianName,
+    this.burialPlace,
+    // House Blessing fields
+    this.homeownerName,
+    this.houseAddress,
+    // Confession fields
+    this.personName,
+    this.notes,
   });
 
   factory ReservationData.fromFirestore(Map<String, dynamic> data, String id) {
@@ -138,11 +206,43 @@ class ReservationData {
           ? (data['paymentSubmittedAt'] as Timestamp).toDate()
           : null,
       paymentReceipts: receiptsList.isEmpty ? null : receiptsList,
+      // Wedding fields
+      groomName: data['groomName'],
+      groomFather: data['groomFather'],
+      groomMother: data['groomMother'],
+      brideName: data['brideName'],
+      brideFather: data['brideFather'],
+      brideMother: data['brideMother'],
+      // Baptism fields
+      childName: data['childName'],
+      childBirthdate: data['childBirthdate'],
+      childBirthplace: data['childBirthplace'],
+      fatherName: data['fatherName'],
+      motherMaidenName: data['motherMaidenName'],
+      parentMarriageType: data['parentMarriageType'],
+      sponsors: data['sponsors'],
+      // Funeral fields
+      deceasedName: data['deceasedName'],
+      deceasedAge: data['deceasedAge'],
+      deathDate: data['deathDate'],
+      burialDate: data['burialDate'],
+      residence: data['residence'],
+      causeOfDeath: data['causeOfDeath'],
+      wasBaptized: data['wasBaptized'],
+      receivedLastSacrament: data['receivedLastSacrament'],
+      guardianName: data['guardianName'],
+      burialPlace: data['burialPlace'],
+      // House Blessing fields
+      homeownerName: data['homeownerName'],
+      houseAddress: data['houseAddress'],
+      // Confession fields
+      personName: data['personName'],
+      notes: data['notes'],
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'userId': userId,
       'eventType': eventType,
       'name': name,
@@ -161,13 +261,48 @@ class ReservationData {
       'paymentSubmittedAt': paymentSubmittedAt,
       'paymentReceipts': paymentReceipts?.map((doc) => doc.toMap()).toList(),
     };
+    
+    // Add event-specific fields only if they're not null
+    if (groomName != null) map['groomName'] = groomName;
+    if (groomFather != null) map['groomFather'] = groomFather;
+    if (groomMother != null) map['groomMother'] = groomMother;
+    if (brideName != null) map['brideName'] = brideName;
+    if (brideFather != null) map['brideFather'] = brideFather;
+    if (brideMother != null) map['brideMother'] = brideMother;
+    
+    if (childName != null) map['childName'] = childName;
+    if (childBirthdate != null) map['childBirthdate'] = childBirthdate;
+    if (childBirthplace != null) map['childBirthplace'] = childBirthplace;
+    if (fatherName != null) map['fatherName'] = fatherName;
+    if (motherMaidenName != null) map['motherMaidenName'] = motherMaidenName;
+    if (parentMarriageType != null) map['parentMarriageType'] = parentMarriageType;
+    if (sponsors != null) map['sponsors'] = sponsors;
+    
+    if (deceasedName != null) map['deceasedName'] = deceasedName;
+    if (deceasedAge != null) map['deceasedAge'] = deceasedAge;
+    if (deathDate != null) map['deathDate'] = deathDate;
+    if (burialDate != null) map['burialDate'] = burialDate;
+    if (residence != null) map['residence'] = residence;
+    if (causeOfDeath != null) map['causeOfDeath'] = causeOfDeath;
+    if (wasBaptized != null) map['wasBaptized'] = wasBaptized;
+    if (receivedLastSacrament != null) map['receivedLastSacrament'] = receivedLastSacrament;
+    if (guardianName != null) map['guardianName'] = guardianName;
+    if (burialPlace != null) map['burialPlace'] = burialPlace;
+    
+    if (homeownerName != null) map['homeownerName'] = homeownerName;
+    if (houseAddress != null) map['houseAddress'] = houseAddress;
+    
+    if (personName != null) map['personName'] = personName;
+    if (notes != null) map['notes'] = notes;
+    
+    return map;
   }
 }
 
 class DocumentImage {
   final String name;
   final String base64Data;
-  final String type; // 'camera' or 'gallery'
+  final String type;
   final DateTime uploadedAt;
 
   DocumentImage({

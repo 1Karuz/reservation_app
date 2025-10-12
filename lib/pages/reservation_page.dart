@@ -22,6 +22,39 @@ class ReservationPage extends StatefulWidget {
 
 class _ReservationPageState extends State<ReservationPage> {
   final _formKey = GlobalKey<FormState>();
+
+// Wedding-specific controllers
+  final TextEditingController groomNameController = TextEditingController();
+  final TextEditingController brideNameController = TextEditingController();
+  final TextEditingController groomFatherController = TextEditingController();
+  final TextEditingController groomMotherController = TextEditingController();
+  final TextEditingController brideFatherController = TextEditingController();
+  final TextEditingController brideMotherController = TextEditingController();
+
+// Baptism-specific controllers
+  final TextEditingController childNameController = TextEditingController();
+  final TextEditingController childBirthdateController =
+      TextEditingController();
+  final TextEditingController childBirthplaceController =
+      TextEditingController();
+  final TextEditingController fatherNameController = TextEditingController();
+  final TextEditingController motherMaidenNameController =
+      TextEditingController();
+  final TextEditingController sponsorsController = TextEditingController();
+  String? parentMarriageType;
+
+// Funeral-specific controllers
+  final TextEditingController deceasedNameController = TextEditingController();
+  final TextEditingController deceasedAgeController = TextEditingController();
+  final TextEditingController deathDateController = TextEditingController();
+  final TextEditingController burialDateController = TextEditingController();
+  final TextEditingController residenceController = TextEditingController();
+  final TextEditingController causeOfDeathController = TextEditingController();
+  final TextEditingController guardianNameController = TextEditingController();
+  final TextEditingController burialPlaceController = TextEditingController();
+  bool? wasBaptized;
+  bool? receivedLastSacrament;
+
   final TextEditingController nameController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
   final TextEditingController contactController = TextEditingController();
@@ -81,7 +114,7 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
   // Check if a date is available for booking
- // Check if a date is available for booking
+  // Check if a date is available for booking
   bool _isDateAvailable(DateTime date) {
     try {
       // Basic validation
@@ -131,9 +164,10 @@ class _ReservationPageState extends State<ReservationPage> {
     } catch (e) {
       // REPLACE THIS LINE:
       // debugPrint('Error in date validation: $e');
-      
+
       // WITH THIS LINE:
-      AppLogger.error('Error in date validation', e, StackTrace.current, 'RESERVATION');
+      AppLogger.error(
+          'Error in date validation', e, StackTrace.current, 'RESERVATION');
       return true;
     }
   }
@@ -238,25 +272,45 @@ class _ReservationPageState extends State<ReservationPage> {
       case 'wedding':
         return {
           'Required Documents': [
-            'PSA Certified birth certificate',
-            'CENOMAR (Certificate of No Marriage)',
-            'Baptismal Certificate from parish',
-            'Confirmation Certificate from parish'
+            'PSA Certified Birth Certificate (Bride & Groom)',
+            'CENOMAR - Certificate of No Marriage Record',
+            'Baptismal Certificate from Parish',
+            'Confirmation Certificate from Parish',
+            'Marriage License from City Hall',
+            'Pre-Cana Seminar Certificate'
           ]
         };
       case 'funeral':
         return {
-          'Required Documents': ['Death certificate']
+          'Required Documents': [
+            'Death Certificate',
+            'Burial Permit (if applicable)',
+            'Baptismal Certificate of Deceased (if available)'
+          ]
         };
       case 'baptism':
         return {
-          'Required Documents': ['Parents\' Catholic marriage contract']
+          'Required Documents': [
+            'PSA Birth Certificate of Child',
+            'Parents\' Catholic Marriage Certificate',
+            'Baptismal Certificates of Parents',
+            'Confirmation Certificates of Godparents'
+          ]
         };
       case 'house blessing':
         return {
           'Note': [
             'No formal documents required',
-            'Contact priest from local parish to schedule'
+            'Please contact the parish priest to schedule',
+            'Prepare your home for the blessing ceremony'
+          ]
+        };
+      case 'confession':
+        return {
+          'Note': [
+            'No documents required for confession',
+            'Simply book your preferred time slot',
+            'Arrive 5-10 minutes early'
           ]
         };
       default:
@@ -305,15 +359,12 @@ class _ReservationPageState extends State<ReservationPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header
+                        // Header (keep existing)
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [
-                                Colors.black,
-                                Colors.grey,
-                              ],
+                              colors: [Colors.black, Colors.grey],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -352,32 +403,32 @@ class _ReservationPageState extends State<ReservationPage> {
                             ],
                           ),
                         ),
+
+                        // Event-Specific Fields
+                        _buildEventSpecificFields(),
+
                         const SizedBox(height: 30),
 
-                        // Personal Information Section
-                        _buildSectionHeader(
-                            'Personal Information', Icons.person),
-                        const SizedBox(height: 20),
-                        _buildModernTextField('Name', nameController,
-                            icon: Icons.person_outline, isRequired: true),
-                        const SizedBox(height: 20),
-                        _buildModernTextField(
-                            'Contact Number', contactController,
-                            icon: Icons.phone_outlined,
-                            isRequired: true,
-                            isPhone: true),
-                        const SizedBox(height: 30),
-
-                        // Event Details Section
+                        // Event Details Section (Date & Time - keep for all events)
                         _buildSectionHeader('Event Details', Icons.event),
                         const SizedBox(height: 20),
                         _buildDateField(),
                         const SizedBox(height: 20),
                         _buildTimeField(),
-                        const SizedBox(height: 20),
-                        _buildModernTextField(
-                            'Additional Comments', commentsController,
-                            icon: Icons.message_outlined, maxLines: 4),
+
+                        // Comments field (only for certain events)
+                        if (widget.eventType.toLowerCase() !=
+                                'house blessing' &&
+                            widget.eventType.toLowerCase() != 'confession') ...[
+                          const SizedBox(height: 20),
+                          _buildModernTextField(
+                              'Additional Comments (Optional)',
+                              commentsController,
+                              icon: Icons.message_outlined,
+                              maxLines: 4,
+                              isRequired: false),
+                        ],
+
                         const SizedBox(height: 30),
 
                         // Document Requirements Section
@@ -886,6 +937,376 @@ class _ReservationPageState extends State<ReservationPage> {
     );
   }
 
+  // ===== WEDDING FIELDS =====
+  Widget _buildWeddingFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        _buildSectionHeader('Groom Information', Icons.male),
+        const SizedBox(height: 20),
+        _buildModernTextField('Groom Full Name', groomNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Groom Father\'s Name', groomFatherController,
+            icon: Icons.supervisor_account, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField(
+            'Groom Mother\'s Maiden Name', groomMotherController,
+            icon: Icons.supervisor_account, isRequired: true),
+        const SizedBox(height: 30),
+        _buildSectionHeader('Bride Information', Icons.female),
+        const SizedBox(height: 20),
+        _buildModernTextField('Bride Full Name', brideNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Bride Father\'s Name', brideFatherController,
+            icon: Icons.supervisor_account, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField(
+            'Bride Mother\'s Maiden Name', brideMotherController,
+            icon: Icons.supervisor_account, isRequired: true),
+        const SizedBox(height: 30),
+        _buildSectionHeader('Contact Information', Icons.contact_phone),
+        const SizedBox(height: 20),
+        _buildModernTextField('Contact Number', contactController,
+            icon: Icons.phone_outlined, isRequired: true, isPhone: true),
+      ],
+    );
+  }
+
+// ===== BAPTISM FIELDS =====
+  Widget _buildBaptismFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        _buildSectionHeader('Child Information', Icons.child_care),
+        const SizedBox(height: 20),
+        _buildModernTextField('Child Full Name', childNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildDatePickerField('Child Birth Date', childBirthdateController,
+            isPast: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Place of Birth', childBirthplaceController,
+            icon: Icons.location_on_outlined, isRequired: true),
+        const SizedBox(height: 30),
+        _buildSectionHeader('Parents Information', Icons.family_restroom),
+        const SizedBox(height: 20),
+        _buildModernTextField('Father\'s Name', fatherNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField(
+            'Mother\'s Maiden Name', motherMaidenNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildMarriageTypeDropdown(),
+        const SizedBox(height: 20),
+        _buildModernTextField('Contact Number', contactController,
+            icon: Icons.phone_outlined, isRequired: true, isPhone: true),
+        const SizedBox(height: 30),
+        _buildSectionHeader('Sponsors (Ninong/Ninang)', Icons.groups),
+        const SizedBox(height: 20),
+        _buildModernTextField('Sponsors Names', sponsorsController,
+            icon: Icons.people_outline, maxLines: 3, isRequired: true),
+      ],
+    );
+  }
+
+// ===== FUNERAL FIELDS =====
+  Widget _buildFuneralFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        _buildSectionHeader('Deceased Information', Icons.local_florist),
+        const SizedBox(height: 20),
+        _buildModernTextField('Name of Deceased', deceasedNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _buildModernTextField('Age', deceasedAgeController,
+                  icon: Icons.calendar_today, isRequired: true),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: _buildDatePickerField('Date of Death', deathDateController,
+                  isPast: true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _buildDatePickerField('Date Buried', burialDateController,
+            isPast: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Residence', residenceController,
+            icon: Icons.home_outlined, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Cause of Death', causeOfDeathController,
+            icon: Icons.medical_services_outlined, isRequired: true),
+        const SizedBox(height: 30),
+        _buildSectionHeader('Sacramental Status', Icons.church),
+        const SizedBox(height: 20),
+        _buildCheckboxField('Was Baptized?', wasBaptized, (value) {
+          setState(() => wasBaptized = value);
+        }),
+        const SizedBox(height: 12),
+        _buildCheckboxField('Received Last Sacrament?', receivedLastSacrament,
+            (value) {
+          setState(() => receivedLastSacrament = value);
+        }),
+        const SizedBox(height: 30),
+        _buildSectionHeader(
+            'Contact & Burial Information', Icons.contact_phone),
+        const SizedBox(height: 20),
+        _buildModernTextField(
+            'Parent/Spouse/Guardian Name', guardianNameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Contact Number', contactController,
+            icon: Icons.phone_outlined, isRequired: true, isPhone: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Where Buried', burialPlaceController,
+            icon: Icons.location_on_outlined, isRequired: true),
+      ],
+    );
+  }
+
+// ===== HOUSE BLESSING FIELDS =====
+  Widget _buildHouseBlessingFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        _buildSectionHeader('Homeowner Information', Icons.home),
+        const SizedBox(height: 20),
+        _buildModernTextField('Homeowner Name', nameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Contact Number', contactController,
+            icon: Icons.phone_outlined, isRequired: true, isPhone: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('House Address', commentsController,
+            icon: Icons.location_on_outlined, maxLines: 3, isRequired: true),
+      ],
+    );
+  }
+
+// ===== CONFESSION FIELDS =====
+  Widget _buildConfessionFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 30),
+        _buildSectionHeader('Personal Information', Icons.person),
+        const SizedBox(height: 20),
+        _buildModernTextField('Name', nameController,
+            icon: Icons.person_outline, isRequired: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Contact Number', contactController,
+            icon: Icons.phone_outlined, isRequired: true, isPhone: true),
+        const SizedBox(height: 20),
+        _buildModernTextField('Additional Notes (Optional)', commentsController,
+            icon: Icons.message_outlined, maxLines: 3, isRequired: false),
+      ],
+    );
+  }
+
+// ===== HELPER WIDGETS =====
+  Widget _buildDatePickerField(String label, TextEditingController controller,
+      {bool isPast = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        readOnly: true,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Please select a date';
+          }
+          return null;
+        },
+        onTap: () async {
+          final DateTime now = DateTime.now();
+          final DateTime? picked = await showDatePicker(
+            context: context,
+            initialDate: isPast
+                ? now.subtract(const Duration(days: 365 * 5))
+                : now, // Default to 5 years ago for past dates
+            firstDate: isPast ? DateTime(1900) : now,
+            lastDate: isPast ? now : now.add(const Duration(days: 365)),
+            builder: (context, child) {
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Colors.black,
+                    onPrimary: Colors.white,
+                    onSurface: Colors.black,
+                  ),
+                ),
+                child: child!,
+              );
+            },
+          );
+
+          if (picked != null && mounted) {
+            setState(() {
+              controller.text = "${picked.day}/${picked.month}/${picked.year}";
+            });
+          }
+        },
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.black),
+          prefixIcon:
+              const Icon(Icons.calendar_today_outlined, color: Colors.black),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Colors.black, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMarriageTypeDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        value: parentMarriageType,
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select marriage type';
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          labelText: 'Parents Marriage Type',
+          labelStyle: const TextStyle(color: Colors.black),
+          prefixIcon: const Icon(Icons.favorite_outline, color: Colors.black),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Colors.black, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        ),
+        items: const [
+          DropdownMenuItem(value: 'Catholic', child: Text('Catholic')),
+          DropdownMenuItem(value: 'Aglipay', child: Text('Aglipay')),
+          DropdownMenuItem(value: 'Civil', child: Text('Civil')),
+          DropdownMenuItem(
+              value: 'Not Yet Married', child: Text('Not Yet Married')),
+          DropdownMenuItem(value: 'Others', child: Text('Others')),
+        ],
+        onChanged: (value) {
+          setState(() {
+            parentMarriageType = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildCheckboxField(
+      String label, bool? value, Function(bool?) onChanged) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: value ?? false,
+            onChanged: onChanged,
+            activeColor: Colors.black,
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventSpecificFields() {
+    switch (widget.eventType.toLowerCase()) {
+      case 'wedding':
+        return _buildWeddingFields();
+      case 'baptism':
+        return _buildBaptismFields();
+      case 'funeral':
+        return _buildFuneralFields();
+      case 'house blessing':
+        return _buildHouseBlessingFields();
+      case 'confession':
+        return _buildConfessionFields();
+      default:
+        return Container();
+    }
+  }
+
   Widget _buildRequirementsCard(Map<String, List<String>> requirements) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1222,20 +1643,58 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
 // pages/reservation_page.dart (Updated _saveReservation method)
-// Replace the existing _saveReservation method with this updated version:
+  void _saveReservation() async {
+    // FIRST: Validate the form
+    if (!_formKey.currentState!.validate()) {
+      // Show error message if validation fails
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please fill in all required fields'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 150,
+            right: 20,
+            left: 20,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
-void _saveReservation() async {
-  if (_formKey.currentState!.validate()) {
+    // SECOND: Validate event-specific required fields
+    String? eventValidationError = _validateEventSpecificFields();
+    if (eventValidationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(eventValidationError),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 150,
+            right: 20,
+            left: 20,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final user = FirebaseAuth.instance.currentUser;
 
-    AppLogger.reservation('Starting reservation save process for ${widget.eventType}');
+    AppLogger.reservation(
+        'Starting reservation save process for ${widget.eventType}');
 
     // Check if documents are required and uploaded
     if (widget.eventType.toLowerCase() != 'house blessing' &&
         uploadedDocuments.isEmpty) {
-      AppLogger.warning('No documents uploaded for ${widget.eventType} reservation', 'RESERVATION');
+      AppLogger.warning(
+          'No documents uploaded for ${widget.eventType} reservation',
+          'RESERVATION');
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Please upload at least one required document'),
@@ -1247,10 +1706,11 @@ void _saveReservation() async {
 
     // Final validation before saving
     if (selectedDate != null && !_isDateAvailable(selectedDate!)) {
-      AppLogger.warning('Selected date is no longer available: $selectedDate', 'RESERVATION');
+      AppLogger.warning(
+          'Selected date is no longer available: $selectedDate', 'RESERVATION');
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Selected date is no longer available'),
+          content: const Text('Selected date is no longer available'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.only(
@@ -1265,11 +1725,14 @@ void _saveReservation() async {
 
     setState(() => _isSaving = true);
 
+    // Build event-specific data
+    Map<String, dynamic> eventSpecificData = _buildEventSpecificData();
+
     final reservation = ReservationData(
       reservationId: '',
       userId: user!.uid,
       eventType: widget.eventType,
-      name: nameController.text.trim(),
+      name: _getPrimaryName(),
       email: user.email ?? '',
       contact: contactController.text.trim(),
       date: selectedDate!,
@@ -1282,20 +1745,25 @@ void _saveReservation() async {
       documents: uploadedDocuments,
     );
 
-    AppLogger.reservation('Reservation data prepared - Event: ${widget.eventType}, Date: $selectedDate, User: ${user.uid}');
+    AppLogger.reservation(
+        'Reservation data prepared - Event: ${widget.eventType}, Date: $selectedDate, User: ${user.uid}');
 
     try {
+      // Merge base reservation data with event-specific data
+      Map<String, dynamic> reservationData = reservation.toMap();
+      reservationData.addAll(eventSpecificData);
+
       final docRef = await FirebaseFirestore.instance
           .collection('reservations')
-          .add(reservation.toMap());
+          .add(reservationData);
 
       reservation.reservationId = docRef.id;
       UserSession.addReservation(reservation);
 
-      AppLogger.reservation('Successfully saved reservation with ID: ${docRef.id}');
+      AppLogger.reservation(
+          'Successfully saved reservation with ID: ${docRef.id}');
 
       if (mounted) {
-        // Navigate to success page with reservation ID for payment flow
         navigator.push(
           MaterialPageRoute(
             builder: (context) => SuccessPage(
@@ -1306,16 +1774,17 @@ void _saveReservation() async {
               contact: reservation.contact,
               timeFrom: reservation.timeFrom,
               timeTo: reservation.timeTo,
-              reservationId: docRef.id, // Add this line
+              reservationId: docRef.id,
             ),
           ),
         );
       }
     } catch (e) {
-      AppLogger.error('Failed to save reservation to Firestore', e, StackTrace.current, 'RESERVATION');
+      AppLogger.error('Failed to save reservation to Firestore', e,
+          StackTrace.current, 'RESERVATION');
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Failed to save reservation. Please try again.'),
             backgroundColor: Colors.red,
           ),
@@ -1325,15 +1794,204 @@ void _saveReservation() async {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-}
+
+// Validate event-specific required fields
+  String? _validateEventSpecificFields() {
+    switch (widget.eventType.toLowerCase()) {
+      case 'wedding':
+        if (groomNameController.text.trim().isEmpty) {
+          return 'Please enter the groom\'s full name';
+        }
+        if (brideNameController.text.trim().isEmpty) {
+          return 'Please enter the bride\'s full name';
+        }
+        if (groomFatherController.text.trim().isEmpty) {
+          return 'Please enter the groom\'s father\'s name';
+        }
+        if (groomMotherController.text.trim().isEmpty) {
+          return 'Please enter the groom\'s mother\'s name';
+        }
+        if (brideFatherController.text.trim().isEmpty) {
+          return 'Please enter the bride\'s father\'s name';
+        }
+        if (brideMotherController.text.trim().isEmpty) {
+          return 'Please enter the bride\'s mother\'s name';
+        }
+        break;
+
+      case 'baptism':
+        if (childNameController.text.trim().isEmpty) {
+          return 'Please enter the child\'s full name';
+        }
+        if (childBirthdateController.text.trim().isEmpty) {
+          return 'Please select the child\'s birth date';
+        }
+        if (childBirthplaceController.text.trim().isEmpty) {
+          return 'Please enter the child\'s birth place';
+        }
+        if (fatherNameController.text.trim().isEmpty) {
+          return 'Please enter the father\'s name';
+        }
+        if (motherMaidenNameController.text.trim().isEmpty) {
+          return 'Please enter the mother\'s maiden name';
+        }
+        if (parentMarriageType == null || parentMarriageType!.isEmpty) {
+          return 'Please select the parents\' marriage type';
+        }
+        if (sponsorsController.text.trim().isEmpty) {
+          return 'Please enter the sponsors\' names';
+        }
+        break;
+
+      case 'funeral':
+        if (deceasedNameController.text.trim().isEmpty) {
+          return 'Please enter the name of the deceased';
+        }
+        if (deceasedAgeController.text.trim().isEmpty) {
+          return 'Please enter the age of the deceased';
+        }
+        if (deathDateController.text.trim().isEmpty) {
+          return 'Please select the date of death';
+        }
+        if (burialDateController.text.trim().isEmpty) {
+          return 'Please select the burial date';
+        }
+        if (residenceController.text.trim().isEmpty) {
+          return 'Please enter the residence';
+        }
+        if (causeOfDeathController.text.trim().isEmpty) {
+          return 'Please enter the cause of death';
+        }
+        if (guardianNameController.text.trim().isEmpty) {
+          return 'Please enter the guardian/contact person\'s name';
+        }
+        if (burialPlaceController.text.trim().isEmpty) {
+          return 'Please enter the burial place';
+        }
+        break;
+
+      case 'house blessing':
+        if (nameController.text.trim().isEmpty) {
+          return 'Please enter the homeowner\'s name';
+        }
+        if (commentsController.text.trim().isEmpty) {
+          return 'Please enter the house address';
+        }
+        break;
+
+      case 'confession':
+        if (nameController.text.trim().isEmpty) {
+          return 'Please enter your name';
+        }
+        break;
+    }
+
+    return null; // No validation errors
+  }
+
+// Helper method to build event-specific data
+  Map<String, dynamic> _buildEventSpecificData() {
+    switch (widget.eventType.toLowerCase()) {
+      case 'wedding':
+        return {
+          'groomName': groomNameController.text.trim(),
+          'groomFather': groomFatherController.text.trim(),
+          'groomMother': groomMotherController.text.trim(),
+          'brideName': brideNameController.text.trim(),
+          'brideFather': brideFatherController.text.trim(),
+          'brideMother': brideMotherController.text.trim(),
+        };
+      case 'baptism':
+        return {
+          'childName': childNameController.text.trim(),
+          'childBirthdate': childBirthdateController.text.trim(),
+          'childBirthplace': childBirthplaceController.text.trim(),
+          'fatherName': fatherNameController.text.trim(),
+          'motherMaidenName': motherMaidenNameController.text.trim(),
+          'parentMarriageType': parentMarriageType ?? '',
+          'sponsors': sponsorsController.text.trim(),
+        };
+      case 'funeral':
+        return {
+          'deceasedName': deceasedNameController.text.trim(),
+          'deceasedAge': deceasedAgeController.text.trim(),
+          'deathDate': deathDateController.text.trim(),
+          'burialDate': burialDateController.text.trim(),
+          'residence': residenceController.text.trim(),
+          'causeOfDeath': causeOfDeathController.text.trim(),
+          'wasBaptized': wasBaptized ?? false,
+          'receivedLastSacrament': receivedLastSacrament ?? false,
+          'guardianName': guardianNameController.text.trim(),
+          'burialPlace': burialPlaceController.text.trim(),
+        };
+      case 'house blessing':
+        return {
+          'homeownerName': nameController.text.trim(),
+          'houseAddress': commentsController.text.trim(),
+        };
+      case 'confession':
+        return {
+          'personName': nameController.text.trim(),
+          'notes': commentsController.text.trim(),
+        };
+      default:
+        return {};
+    }
+  }
+
+// Helper method to get primary name for display
+  String _getPrimaryName() {
+    switch (widget.eventType.toLowerCase()) {
+      case 'wedding':
+        return '${groomNameController.text.trim()} & ${brideNameController.text.trim()}';
+      case 'baptism':
+        return childNameController.text.trim();
+      case 'funeral':
+        return deceasedNameController.text.trim();
+      case 'house blessing':
+        return nameController.text.trim();
+      case 'confession':
+        return nameController.text.trim();
+      default:
+        return nameController.text.trim();
+    }
+  }
 
   @override
   void dispose() {
+    // Base controllers
     nameController.dispose();
     dateController.dispose();
     contactController.dispose();
     commentsController.dispose();
     timeController.dispose();
+
+    // Wedding controllers
+    groomNameController.dispose();
+    brideNameController.dispose();
+    groomFatherController.dispose();
+    groomMotherController.dispose();
+    brideFatherController.dispose();
+    brideMotherController.dispose();
+
+    // Baptism controllers
+    childNameController.dispose();
+    childBirthdateController.dispose();
+    childBirthplaceController.dispose();
+    fatherNameController.dispose();
+    motherMaidenNameController.dispose();
+    sponsorsController.dispose();
+
+    // Funeral controllers
+    deceasedNameController.dispose();
+    deceasedAgeController.dispose();
+    deathDateController.dispose();
+    burialDateController.dispose();
+    residenceController.dispose();
+    causeOfDeathController.dispose();
+    guardianNameController.dispose();
+    burialPlaceController.dispose();
+
     super.dispose();
   }
 }
