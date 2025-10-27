@@ -431,9 +431,9 @@ class _ReservationPageState extends State<ReservationPage> {
 
                         const SizedBox(height: 30),
 
-                        // Document Requirements Section
-                        if (widget.eventType.toLowerCase() !=
-                            'house blessing') ...[
+                      // Document Requirements Section
+                        if (widget.eventType.toLowerCase() != 'house blessing' &&
+                            widget.eventType.toLowerCase() != 'confession') ...[
                           _buildSectionHeader(
                               'Document Requirements', Icons.description),
                           const SizedBox(height: 15),
@@ -1690,8 +1690,9 @@ class _ReservationPageState extends State<ReservationPage> {
     AppLogger.reservation(
         'Starting reservation save process for ${widget.eventType}');
 
-    // Check if documents are required and uploaded
+// Check if documents are required and uploaded
     if (widget.eventType.toLowerCase() != 'house blessing' &&
+        widget.eventType.toLowerCase() != 'confession' &&
         uploadedDocuments.isEmpty) {
       AppLogger.warning(
           'No documents uploaded for ${widget.eventType} reservation',
