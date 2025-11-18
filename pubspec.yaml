@@ -45,6 +45,7 @@ flutter:
   # Add your assets here
   assets:
     - assets/images/
+    - assets/icons/
     # - assets/fonts/Terraria.TTF
     # - assets/icons
 

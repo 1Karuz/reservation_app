@@ -239,6 +239,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         elevation: 0,
         title: Row(
           children: [
+            // Logo before welcome message
+            Image.asset(
+              'assets/icons/logo.png',
+              width: 40,
+              height: 40,
+            ),
+            const SizedBox(width: 8),
             Text(
               'Welcome, ${UserSession.email.split('@')[0]}',
               style: const TextStyle(
@@ -248,7 +255,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
             const Spacer(),
-            // Welcome message - placed in AppBar for minimal size
           ],
         ),
         automaticallyImplyLeading: false,
