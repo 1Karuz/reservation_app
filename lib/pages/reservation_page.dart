@@ -431,8 +431,9 @@ class _ReservationPageState extends State<ReservationPage> {
 
                         const SizedBox(height: 30),
 
-                      // Document Requirements Section
-                        if (widget.eventType.toLowerCase() != 'house blessing' &&
+                        // Document Requirements Section
+                        if (widget.eventType.toLowerCase() !=
+                                'house blessing' &&
                             widget.eventType.toLowerCase() != 'confession') ...[
                           _buildSectionHeader(
                               'Document Requirements', Icons.description),
@@ -1365,6 +1366,10 @@ class _ReservationPageState extends State<ReservationPage> {
   }
 
   Widget _buildDocumentUploadSection() {
+    final requirements = getRequiredDocuments();
+    final requirementsList =
+        requirements.values.expand((list) => list).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1372,43 +1377,288 @@ class _ReservationPageState extends State<ReservationPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Upload Documents',
+              'Upload Required Documents',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[800],
               ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildUploadButton('Camera', Icons.camera_alt,
-                      () => _pickImage(ImageSource.camera)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildUploadButton('Gallery', Icons.photo_library,
-                      () => _pickImage(ImageSource.gallery)),
-                ),
-              ],
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'All documents must be uploaded to proceed',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 15),
-        if (uploadedDocuments.isNotEmpty) _buildUploadedDocumentsList(),
+        const SizedBox(height: 20),
+
+        // Individual document upload cards
+        ...requirementsList.asMap().entries.map((entry) {
+          final index = entry.key;
+          final docName = entry.value;
+          final isUploaded =
+              uploadedDocuments.any((doc) => doc.type == 'requirement_$index');
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color:
+                    isUploaded ? Colors.green.shade300 : Colors.grey.shade300,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Document header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color:
+                        isUploaded ? Colors.green.shade50 : Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(13),
+                      topRight: Radius.circular(13),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isUploaded
+                              ? Colors.green.shade100
+                              : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          isUploaded ? Icons.check_circle : Icons.description,
+                          color: isUploaded
+                              ? Colors.green.shade700
+                              : Colors.grey.shade600,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              docName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isUploaded ? 'Uploaded' : 'Required',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isUploaded
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isUploaded)
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.green.shade600,
+                          size: 28,
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Upload area
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: isUploaded
+                      ? _buildUploadedPreview(index)
+                      : _buildUploadButtons(index, docName),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+
+        // Progress indicator
+        const SizedBox(height: 16),
+        _buildUploadProgress(requirementsList.length),
       ],
     );
   }
 
-  Widget _buildUploadButton(
+  Widget _buildUploadedPreview(int docIndex) {
+    final doc = uploadedDocuments.firstWhere(
+      (d) => d.type == 'requirement_$docIndex',
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.green.shade300, width: 2),
+              ),
+              child: Image.memory(
+                base64Decode(doc.base64Data),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: Icon(Icons.error, color: Colors.red),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doc.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: Colors.green[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Uploaded',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _removeDocument(docIndex),
+            icon: const Icon(Icons.close, color: Colors.red, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadButtons(int docIndex, String docName) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildModernUploadButton(
+                'Camera',
+                Icons.camera_alt,
+                () => _pickImageForDocument(
+                    ImageSource.camera, docIndex, docName),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildModernUploadButton(
+                'Gallery',
+                Icons.photo_library,
+                () => _pickImageForDocument(
+                    ImageSource.gallery, docIndex, docName),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Tap to upload this document',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernUploadButton(
       String label, IconData icon, VoidCallback onPressed) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          colors: [Colors.grey[800]!, Colors.grey[700]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withOpacity(0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 2),
@@ -1417,97 +1667,92 @@ class _ReservationPageState extends State<ReservationPage> {
       ),
       child: ElevatedButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: 20),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: const BorderSide(color: Colors.black),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildUploadedDocumentsList() {
+  Widget _buildUploadProgress(int totalRequired) {
+    final uploadedCount = uploadedDocuments
+        .where((doc) => doc.type.startsWith('requirement_'))
+        .length;
+    final progress = totalRequired > 0 ? uploadedCount / totalRequired : 0.0;
+
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.shade200),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Uploaded Documents (${uploadedDocuments.length})',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Upload Progress',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+              ),
+              Text(
+                '$uploadedCount / $totalRequired',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: progress == 1.0
+                      ? Colors.green.shade700
+                      : Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress == 1.0
+                    ? Colors.green.shade600
+                    : Colors.orange.shade600,
+              ),
+              minHeight: 8,
             ),
           ),
-          const SizedBox(height: 10),
-          ...uploadedDocuments.asMap().entries.map((entry) {
-            final index = entry.key;
-            final doc = entry.value;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
+          if (progress < 1.0) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${totalRequired - uploadedCount} document${totalRequired - uploadedCount != 1 ? 's' : ''} remaining',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    doc.type == 'camera' ? Icons.camera_alt : Icons.photo,
-                    color: Colors.black,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          doc.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          'Uploaded via ${doc.type}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => _removeDocument(index),
-                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                  ),
-                ],
-              ),
-            );
-          }),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImageForDocument(
+      ImageSource source, int docIndex, String docName) async {
     try {
-      // Request permissions
       if (source == ImageSource.camera) {
         final cameraStatus = await Permission.camera.request();
         if (!cameraStatus.isGranted) {
@@ -1531,7 +1776,7 @@ class _ReservationPageState extends State<ReservationPage> {
       );
 
       if (image != null) {
-        await _processAndAddImage(image, source);
+        await _processAndAddDocumentImage(image, source, docIndex, docName);
       }
     } catch (e) {
       if (mounted) {
@@ -1545,15 +1790,14 @@ class _ReservationPageState extends State<ReservationPage> {
     }
   }
 
-  Future<void> _processAndAddImage(XFile image, ImageSource source) async {
-    AppLogger.imageProcessing('Starting image processing for: ${image.name}');
+  Future<void> _processAndAddDocumentImage(
+      XFile image, ImageSource source, int docIndex, String docName) async {
+    AppLogger.imageProcessing('Processing document: $docName');
 
     try {
-      // Read image bytes
       final bytes = await File(image.path).readAsBytes();
       AppLogger.imageProcessing('Read ${bytes.length} bytes from image file');
 
-      // Decode and compress image
       img.Image? originalImage = img.decodeImage(bytes);
       if (originalImage == null) {
         AppLogger.error(
@@ -1561,29 +1805,14 @@ class _ReservationPageState extends State<ReservationPage> {
         return;
       }
 
-      AppLogger.imageProcessing(
-          'Original image size: ${originalImage.width}x${originalImage.height}');
-
-      // Resize if too large (max 800px width)
       if (originalImage.width > 800) {
         originalImage = img.copyResize(originalImage, width: 800);
-        AppLogger.imageProcessing(
-            'Resized image to: ${originalImage.width}x${originalImage.height}');
       }
 
-      // Encode as JPEG with compression
       final compressedBytes = img.encodeJpg(originalImage, quality: 70);
-      AppLogger.imageProcessing(
-          'Compressed image to ${compressedBytes.length} bytes');
-
-      // Convert to base64
       final base64String = base64Encode(compressedBytes);
 
-      // Check size (Firestore has 1MB limit per document)
       if (base64String.length > 500000) {
-        AppLogger.warning(
-            'Image too large after compression: ${base64String.length} characters',
-            'IMAGE');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1595,10 +1824,16 @@ class _ReservationPageState extends State<ReservationPage> {
         return;
       }
 
+      // Remove existing document for this requirement if any
+      setState(() {
+        uploadedDocuments
+            .removeWhere((doc) => doc.type == 'requirement_$docIndex');
+      });
+
       final docImage = DocumentImage(
-        name: 'Document_${DateTime.now().millisecondsSinceEpoch}',
+        name: docName,
         base64Data: base64String,
-        type: source == ImageSource.camera ? 'camera' : 'gallery',
+        type: 'requirement_$docIndex',
         uploadedAt: DateTime.now(),
       );
 
@@ -1607,23 +1842,21 @@ class _ReservationPageState extends State<ReservationPage> {
           uploadedDocuments.add(docImage);
         });
 
-        AppLogger.imageProcessing(
-            'Successfully added document: ${docImage.name}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document uploaded successfully'),
+          SnackBar(
+            content: Text('$docName uploaded successfully'),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
-      AppLogger.error('Error processing image: ${image.name}', e,
-          StackTrace.current, 'IMAGE');
+      AppLogger.error(
+          'Error processing document image', e, StackTrace.current, 'IMAGE');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Error processing image: ${e.toString().split(':').last}'),
+          const SnackBar(
+            content: Text('Error processing image. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1631,14 +1864,16 @@ class _ReservationPageState extends State<ReservationPage> {
     }
   }
 
-  void _removeDocument(int index) {
+  void _removeDocument(int docIndex) {
     setState(() {
-      uploadedDocuments.removeAt(index);
+      uploadedDocuments
+          .removeWhere((doc) => doc.type == 'requirement_$docIndex');
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Document removed'),
         backgroundColor: Colors.grey,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -1690,20 +1925,32 @@ class _ReservationPageState extends State<ReservationPage> {
     AppLogger.reservation(
         'Starting reservation save process for ${widget.eventType}');
 
-// Check if documents are required and uploaded
+    // Check if all required documents are uploaded
     if (widget.eventType.toLowerCase() != 'house blessing' &&
-        widget.eventType.toLowerCase() != 'confession' &&
-        uploadedDocuments.isEmpty) {
-      AppLogger.warning(
-          'No documents uploaded for ${widget.eventType} reservation',
-          'RESERVATION');
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Please upload at least one required document'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
+        widget.eventType.toLowerCase() != 'confession') {
+      final requirements = getRequiredDocuments();
+      final requirementsList =
+          requirements.values.expand((list) => list).toList();
+      final requiredCount = requirementsList.length;
+      final uploadedCount = uploadedDocuments
+          .where((doc) => doc.type.startsWith('requirement_'))
+          .length;
+
+      if (uploadedCount < requiredCount) {
+        AppLogger.warning(
+            'Incomplete documents: $uploadedCount/$requiredCount uploaded for ${widget.eventType}',
+            'RESERVATION');
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+                'Please upload all $requiredCount required documents (${uploadedCount}/$requiredCount uploaded)'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
     }
 
     // Final validation before saving
